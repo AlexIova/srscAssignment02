@@ -37,6 +37,17 @@ class StreamServer {
 
 	public static void main( String []args ) throws Exception {
 
+		ServerSocket serverSocket = new ServerSocket(6868);		// TODO: need to later change the port
+		Socket socket = serverSocket.accept();
+		ObjectOutputStream output = new ObjectOutputStream(socket.getOutputStream());
+		ObjectInputStream input = new ObjectInputStream(socket.getInputStream());
+		
+		output.writeObject("Hello I'm StreamServer");
+
+		String reply = (String) input.readObject();
+		System.out.println("Reply:\t" + reply);
+
+		serverSocket.close();
 	}
 
 

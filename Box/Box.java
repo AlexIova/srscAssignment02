@@ -13,6 +13,7 @@ import java.io.*;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.MulticastSocket;
+import java.net.Socket;
 import java.net.InetSocketAddress;
 import java.net.InetAddress;
 import java.net.SocketAddress;
@@ -38,7 +39,20 @@ class Box {
 			System.exit(-1);
 		}
 
-		
+		String address = args[1];
+		int port = Integer.parseInt(args[2]);
+
+		Socket socket = new Socket(address, port);;
+		ObjectOutputStream output = new ObjectOutputStream(socket.getOutputStream());
+		ObjectInputStream input = new ObjectInputStream(socket.getInputStream());
+		output.writeObject("Hello, I'm Box");
+
+		String reply = (String) input.readObject();
+		System.out.println("Reply:\t" + reply);
+
+		output.close();
+		input.close();
+		socket.close();
 
 
 	}
