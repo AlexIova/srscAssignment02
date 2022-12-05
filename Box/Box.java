@@ -10,6 +10,7 @@
  */
 
 import java.io.*;
+import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.MulticastSocket;
@@ -18,6 +19,7 @@ import java.net.InetSocketAddress;
 import java.net.InetAddress;
 import java.net.SocketAddress;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.ArrayList;
 import java.util.Properties;
 import java.util.Set;
@@ -43,21 +45,40 @@ class Box {
 		ObjectOutputStream output = UtilsBox.outTCPStream(socket);
 		ObjectInputStream input = UtilsBox.inTCPStream(socket);
 
-		int nonce = UtilsBox.getNonce();
+		byte[] nonce = UtilsBox.getNonceBytes();
 
-		System.out.println("Sent:\t" + nonce);
+		System.out.println("nonce:\t" + UtilsBox.byteArrToInt(nonce));
+
+		/*
+		SecretKey mackeySS = UtilsBox.getKeyKS("configs/kmacKeyStoreSS.pkcs12", "mackey", "password", "password");
+		Mac macSS = UtilsBox.prepareMacFunc("HMac-SHA1", mackeySS);
+		SecretKey mackeyBox = UtilsBox.getKeyKS("configs/kmacKeyStoreBox.pkcs12", "mackey", "password", "password");
+		Mac macBox = UtilsBox.prepareMacFunc("HMac-SHA1", mackeySS);
+		*/
+
+		/* Build message */
+		byte[] msg = new byte[] { };
+		// send nonce
+		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(nonce.length));
+		System.out.println("debug: " + UtilsBox.intToByteArr(nonce.length).length);
+		msg = UtilsBox.byteArrConcat(msg, nonce);
+
 		
-		UtilsBox.sendTCP(output, nonce);
+		/* Send message */
+		UtilsBox.sendTCP(output, msg);
 
-		byte[] reply = (byte[]) UtilsBox.serializeObject(UtilsBox.recvTCP(input)); 
 
-		int num = UtilsBox.byteArrToInt(reply);
+		/* Receive reply */
+		byte[] reply = (byte[]) UtilsBox.recvTCP(input); 
 
-		if (num == nonce){
+		/* Get nonce */
+		int sizeNonceReply = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, 0, 4));
+		byte[] nonceReply = Arrays.copyOfRange(reply, 4, 4 + sizeNonceReply);
+
+		// Compare nonces
+		if (Arrays.equals(nonce, nonceReply)){
 			System.out.println("Tutto bene");
 		}
-
-		System.out.println("Reply:\t" + num);
 
 		UtilsBox.closeTCPConns(socket, input, output);
 

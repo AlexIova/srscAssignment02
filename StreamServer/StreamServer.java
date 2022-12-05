@@ -20,6 +20,7 @@
 */
 
 import java.io.*;
+import java.math.BigInteger;
 import java.net.*;
 import java.security.*;
 import javax.crypto.*;
@@ -27,6 +28,7 @@ import javax.crypto.spec.*;
 import javax.lang.model.type.NullType;
 import java.security.Security;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Properties;
 import java.nio.charset.StandardCharsets;
 
@@ -43,18 +45,34 @@ class StreamServer {
 			System.exit(-1);
 		}
 
+		/* Create connections */
 		ServerSocket serverSocket = new ServerSocket(Integer.parseInt(args[0]));
 		Socket socket = serverSocket.accept();
 		ObjectOutputStream output = UtilsServer.outTCPStream(socket);
 		ObjectInputStream input = UtilsServer.inTCPStream(socket);
 		
-		byte[] reply = UtilsServer.serializeObject(UtilsServer.recvTCP(input)); 
-		
-		int nonceRecv = UtilsServer.byteArrToInt(reply);
+		/* Receive message */
+		byte[] reply = (byte[]) UtilsServer.recvTCP(input);
 
-		System.out.println("Recv:\t" + nonceRecv);
+		// Get nonce
+		int sizeNonce = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, 0, 4));
+		byte[] nonce = Arrays.copyOfRange(reply, 4, 4+sizeNonce);
 
-		UtilsServer.sendTCP(output, nonceRecv);
+		System.out.println("recv:\t" + UtilsServer.byteArrToInt(nonce));
+
+
+		/* Build message */
+		byte[] msg = new byte[] { };
+		// send nonce
+		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(nonce.length));
+		msg = UtilsServer.byteArrConcat(msg, nonce);
+
+		/*
+		SecretKey mackey = UtilsBox.getKeyKS("configs/kmacKeyStoreBox.pkcs12", "mackey", "password", "password");
+		System.out.println(new String(Base64.getEncoder().encode(mackey.getEncoded())));
+		*/
+
+		UtilsServer.sendTCP(output, msg);
 
 		serverSocket.close();
 		UtilsServer.closeTCPConns(socket, input, output);
