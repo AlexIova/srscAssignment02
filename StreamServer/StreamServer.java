@@ -37,17 +37,25 @@ class StreamServer {
 
 	public static void main( String []args ) throws Exception {
 
-		ServerSocket serverSocket = new ServerSocket(6868);		// TODO: need to later change the port
-		Socket socket = serverSocket.accept();
-		ObjectOutputStream output = new ObjectOutputStream(socket.getOutputStream());
-		ObjectInputStream input = new ObjectInputStream(socket.getInputStream());
-		
-		output.writeObject("Hello I'm StreamServer");
+		if (args.length != 1)
+		{
+			System.out.println ("Use: StreamServer <port>");
+			System.exit(-1);
+		}
 
-		String reply = (String) input.readObject();
+		ServerSocket serverSocket = new ServerSocket(Integer.parseInt(args[0]));		// TODO: need to later change the port
+		Socket socket = serverSocket.accept();
+		ObjectOutputStream output = UtilsServer.outTCPStream(socket);
+		ObjectInputStream input = UtilsServer.inTCPStream(socket);
+		
+		UtilsServer.sendTCP(output, "Hello I'm StreamServer");
+
+		String reply = (String) UtilsServer.recvTCP(input);
 		System.out.println("Reply:\t" + reply);
 
 		serverSocket.close();
+		UtilsServer.closeTCPConns(socket, input, output);
+
 	}
 
 

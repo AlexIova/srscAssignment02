@@ -39,21 +39,15 @@ class Box {
 			System.exit(-1);
 		}
 
-		String address = args[1];
-		int port = Integer.parseInt(args[2]);
+		Socket socket = UtilsBox.createTCPSock(args[1], Integer.parseInt(args[2]));
+		ObjectOutputStream output = UtilsBox.outTCPStream(socket);
+		ObjectInputStream input = UtilsBox.inTCPStream(socket);
+		UtilsBox.sendTCP(output, "hello I'm Box");
 
-		Socket socket = new Socket(address, port);;
-		ObjectOutputStream output = new ObjectOutputStream(socket.getOutputStream());
-		ObjectInputStream input = new ObjectInputStream(socket.getInputStream());
-		output.writeObject("Hello, I'm Box");
-
-		String reply = (String) input.readObject();
+		String reply = (String) UtilsBox.recvTCP(input);
 		System.out.println("Reply:\t" + reply);
 
-		output.close();
-		input.close();
-		socket.close();
-
+		UtilsBox.closeTCPConns(socket, input, output);
 
 	}
 	
