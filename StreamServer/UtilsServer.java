@@ -39,4 +39,23 @@ public class UtilsServer {
         output.close();
     }
 
+    static public int byteArrToInt(byte[] bytes){
+        int value = 0;
+        for (byte b : bytes) {
+            value = (value << 8) + (b & 0xFF);
+        }
+        return value;
+    }
+
+    public static byte[] serializeObject(Object obj) throws IOException{
+        ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(bytesOut);
+        oos.writeObject(obj);
+        oos.flush();
+        byte[] bytes = bytesOut.toByteArray();
+        bytesOut.close();
+        oos.close();
+        return bytes;
+    }
+
 }

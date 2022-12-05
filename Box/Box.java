@@ -42,10 +42,22 @@ class Box {
 		Socket socket = UtilsBox.createTCPSock(args[1], Integer.parseInt(args[2]));
 		ObjectOutputStream output = UtilsBox.outTCPStream(socket);
 		ObjectInputStream input = UtilsBox.inTCPStream(socket);
-		UtilsBox.sendTCP(output, "hello I'm Box");
 
-		String reply = (String) UtilsBox.recvTCP(input);
-		System.out.println("Reply:\t" + reply);
+		int nonce = UtilsBox.getNonce();
+
+		System.out.println("Sent:\t" + nonce);
+		
+		UtilsBox.sendTCP(output, nonce);
+
+		byte[] reply = (byte[]) UtilsBox.serializeObject(UtilsBox.recvTCP(input)); 
+
+		int num = UtilsBox.byteArrToInt(reply);
+
+		if (num == nonce){
+			System.out.println("Tutto bene");
+		}
+
+		System.out.println("Reply:\t" + num);
 
 		UtilsBox.closeTCPConns(socket, input, output);
 

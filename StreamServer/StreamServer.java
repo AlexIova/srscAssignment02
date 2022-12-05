@@ -43,15 +43,18 @@ class StreamServer {
 			System.exit(-1);
 		}
 
-		ServerSocket serverSocket = new ServerSocket(Integer.parseInt(args[0]));		// TODO: need to later change the port
+		ServerSocket serverSocket = new ServerSocket(Integer.parseInt(args[0]));
 		Socket socket = serverSocket.accept();
 		ObjectOutputStream output = UtilsServer.outTCPStream(socket);
 		ObjectInputStream input = UtilsServer.inTCPStream(socket);
 		
-		UtilsServer.sendTCP(output, "Hello I'm StreamServer");
+		byte[] reply = UtilsServer.serializeObject(UtilsServer.recvTCP(input)); 
+		
+		int nonceRecv = UtilsServer.byteArrToInt(reply);
 
-		String reply = (String) UtilsServer.recvTCP(input);
-		System.out.println("Reply:\t" + reply);
+		System.out.println("Recv:\t" + nonceRecv);
+
+		UtilsServer.sendTCP(output, nonceRecv);
 
 		serverSocket.close();
 		UtilsServer.closeTCPConns(socket, input, output);
