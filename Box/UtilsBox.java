@@ -11,6 +11,8 @@ import java.util.Arrays;
 import java.security.*;
 import java.security.cert.CertificateException;
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+
 import javax.crypto.*;
 import javax.crypto.spec.*;
 import java.security.spec.InvalidKeySpecException;
@@ -19,6 +21,10 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 
 public class UtilsBox {
+
+    static {
+        Security.addProvider(new BouncyCastleProvider());
+    }
 
     static public Socket createTCPSock(String address, int port) throws UnknownHostException, IOException{
         return new Socket(address, port);

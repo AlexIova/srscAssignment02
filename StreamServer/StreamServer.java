@@ -50,15 +50,38 @@ class StreamServer {
 		Socket socket = serverSocket.accept();
 		ObjectOutputStream output = UtilsServer.outTCPStream(socket);
 		ObjectInputStream input = UtilsServer.inTCPStream(socket);
+
+
+		/* Prepare kmac functions */
+		SecretKey mackeyBox = UtilsServer.getKeyKS("configs/kmacKeyStoreBox.pkcs12", "mackey", "password", "password");
+		Mac macBox = UtilsServer.prepareMacFunc("HmacSHA1", mackeyBox);
+		SecretKey mackeySS = UtilsServer.getKeyKS("configs/kmacKeyStoreSS.pkcs12", "mackey", "password", "password");
+		Mac macSS = UtilsServer.prepareMacFunc("HmacSHA1", mackeySS);
+
 		
-		/* Receive message */
+		/*--------- Receive message ---------*/
 		byte[] reply = (byte[]) UtilsServer.recvTCP(input);
+		// Get kmac
+		int sizeKmac = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, reply.length-4, reply.length));
+		System.out.println("DEBUG sizekmac: " + sizeKmac);
+		byte[] buffKmacRCV = Arrays.copyOfRange(reply, reply.length-4-sizeKmac, reply.length-4);
+		System.out.println("DEBUG buffKmacRCV: " + buffKmacRCV.length);
+		byte[] buffZRcv = Arrays.copyOfRange(reply, 0, reply.length-4-sizeKmac);	// Z of message received
+		byte[] buffKmacOWN = macSS.doFinal(buffZRcv);		// Z kmac own calculated
+		// verify rest of msg
+		if( MessageDigest.isEqual(buffKmacRCV, buffKmacOWN) ){
+			System.out.println("Validated Message Box");
+		}
+		else {
+			System.out.println("Problem validating message Box");
+		}
+
 
 		// Get nonce
 		int sizeNonce = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, 0, 4));
 		byte[] nonce = Arrays.copyOfRange(reply, 4, 4+sizeNonce);
 
-		System.out.println("recv:\t" + UtilsServer.byteArrToInt(nonce));
+		System.out.println("DEBUG recv nonce: " + UtilsServer.byteArrToInt(nonce));
 
 
 		/* Build message */
@@ -66,11 +89,9 @@ class StreamServer {
 		// send nonce
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(nonce.length));
 		msg = UtilsServer.byteArrConcat(msg, nonce);
-
-		/*
-		SecretKey mackey = UtilsBox.getKeyKS("configs/kmacKeyStoreBox.pkcs12", "mackey", "password", "password");
-		System.out.println(new String(Base64.getEncoder().encode(mackey.getEncoded())));
-		*/
+		// prepare kmac
+		msg = UtilsServer.byteArrConcat(msg, macBox.doFinal(msg));
+		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(macBox.getMacLength()));
 
 		UtilsServer.sendTCP(output, msg);
 

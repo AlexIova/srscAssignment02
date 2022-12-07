@@ -12,11 +12,16 @@ import java.util.Random;
 import java.security.spec.InvalidKeySpecException;
 import java.security.cert.*;
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 
 
 
 public class UtilsServer {
+
+    static {
+        Security.addProvider(new BouncyCastleProvider());
+    }
 
     static public ObjectOutputStream outTCPStream(Socket socket) throws IOException{
         return new ObjectOutputStream(socket.getOutputStream());
@@ -78,8 +83,9 @@ public class UtilsServer {
     }
 
     public static Mac prepareMacFunc(String hCheck, Key macKey) 
-                                    throws InvalidKeyException, NoSuchAlgorithmException {
-        Mac hMac = Mac.getInstance(hCheck);
+                                    throws InvalidKeyException, NoSuchAlgorithmException, 
+                                            NoSuchProviderException {
+        Mac hMac = Mac.getInstance(hCheck, "BC");
         hMac.init(macKey);
         return hMac;
 	}

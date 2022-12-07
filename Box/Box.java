@@ -47,21 +47,24 @@ class Box {
 
 		byte[] nonce = UtilsBox.getNonceBytes();
 
-		System.out.println("nonce:\t" + UtilsBox.byteArrToInt(nonce));
+		System.out.println("DEBUG nonce:\t" + UtilsBox.byteArrToInt(nonce));
 
-		/*
+		
+		/* Prepare kmac functions */
 		SecretKey mackeySS = UtilsBox.getKeyKS("configs/kmacKeyStoreSS.pkcs12", "mackey", "password", "password");
 		Mac macSS = UtilsBox.prepareMacFunc("HMac-SHA1", mackeySS);
 		SecretKey mackeyBox = UtilsBox.getKeyKS("configs/kmacKeyStoreBox.pkcs12", "mackey", "password", "password");
-		Mac macBox = UtilsBox.prepareMacFunc("HMac-SHA1", mackeySS);
-		*/
+		Mac macBox = UtilsBox.prepareMacFunc("HMac-SHA1", mackeyBox);
 
-		/* Build message */
+
+		/*--------- Build message ---------*/
 		byte[] msg = new byte[] { };
 		// send nonce
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(nonce.length));
-		System.out.println("debug: " + UtilsBox.intToByteArr(nonce.length).length);
 		msg = UtilsBox.byteArrConcat(msg, nonce);
+		// Prepare kmac
+		msg = UtilsBox.byteArrConcat(msg, macSS.doFinal(msg));
+		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(macSS.getMacLength()));
 
 		
 		/* Send message */
@@ -71,13 +74,28 @@ class Box {
 		/* Receive reply */
 		byte[] reply = (byte[]) UtilsBox.recvTCP(input); 
 
+		/* Get kmac */
+		int sizeKmac = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, reply.length-4, reply.length));
+		System.out.println("DEBUG sizekmac: " + sizeKmac);
+		byte[] buffKmacRCV = Arrays.copyOfRange(reply, reply.length-4-sizeKmac, reply.length-4);	// kmac received
+		System.out.println("DEBUG buffKmacRCV: " + buffKmacRCV.length);
+		byte[] buffZRcv = Arrays.copyOfRange(reply, 0, reply.length-4-sizeKmac);	// Z of message received
+		byte[] buffKmacOWN = macBox.doFinal(buffZRcv);		// Z kmac own calculated
+		// verify rest of msg
+		if( MessageDigest.isEqual(buffKmacRCV, buffKmacOWN) ){
+			System.out.println("Validated Message SS");
+		}
+		else {
+			System.out.println("Problem validating message SS");
+		}
+		
+
 		/* Get nonce */
 		int sizeNonceReply = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, 0, 4));
 		byte[] nonceReply = Arrays.copyOfRange(reply, 4, 4 + sizeNonceReply);
-
 		// Compare nonces
 		if (Arrays.equals(nonce, nonceReply)){
-			System.out.println("Tutto bene");
+			System.out.println("Nonce corresponds");
 		}
 
 		UtilsBox.closeTCPConns(socket, input, output);
