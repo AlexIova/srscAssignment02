@@ -4,18 +4,23 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Properties;
 import java.util.Random;
 import java.util.Arrays;
+import java.util.Base64;
 import java.security.*;
-import java.security.cert.CertificateException;
+import java.security.cert.*;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import javax.crypto.*;
 import javax.crypto.spec.*;
 import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.net.SocketAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -119,5 +124,45 @@ public class UtilsBox {
 
 		return c;
 	}
+
+    public static X509Certificate getCertificate(String path) 
+                                        throws CertificateException, FileNotFoundException{
+
+		CertificateFactory cf = CertificateFactory.getInstance("X.509");
+		
+	    InputStream in = new BufferedInputStream(new FileInputStream(path));
+	    X509Certificate cert = (X509Certificate) cf.generateCertificate(in);
+
+		return cert;
+	}
+
+    public static PrivateKey readRSAPrivateKey(String path) 
+                                        throws NoSuchAlgorithmException, NoSuchProviderException,
+                                                InvalidKeySpecException, IOException{
+
+        String keyString = new String(Files.readAllBytes(Paths.get(path)), Charset.defaultCharset());
+    
+        String privateKeyPEM = keyString
+          .replace("-----BEGIN PRIVATE KEY-----", "")
+          .replaceAll(System.lineSeparator(), "")
+          .replace("-----END PRIVATE KEY-----", "");
+    
+        byte[] encoded = Base64.getDecoder().decode(privateKeyPEM);
+        KeyFactory kf = KeyFactory.getInstance("RSA", "BC");
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
+        PrivateKey key = kf.generatePrivate(keySpec);
+        return key;
+
+    }
+
+    public static byte[] sign(PrivateKey kPriv, String algorithm, byte[] message){
+
+        Signature signature = Signature.getInstance(algorithm, "BC");
+        signature.initSign(kPriv);
+        signature.update(message);
+        byte[]  sigBytes = signature.sign();
+
+        return sigBytes;
+    }
 
 }

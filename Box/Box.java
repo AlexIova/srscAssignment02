@@ -28,6 +28,8 @@ import java.util.stream.Collectors;
 import java.security.*;
 import javax.crypto.*;
 import javax.crypto.spec.*;
+import java.security.cert.*;
+
 import java.security.spec.InvalidKeySpecException;
 import java.security.Security;
 
@@ -47,24 +49,33 @@ class Box {
 
 		byte[] nonce = UtilsBox.getNonceBytes();
 
-		System.out.println("DEBUG nonce:\t" + UtilsBox.byteArrToInt(nonce));
+		// System.out.println("DEBUG nonce:\t" + UtilsBox.byteArrToInt(nonce));
 
-		
+
 		/* Prepare kmac functions */
 		SecretKey mackeySS = UtilsBox.getKeyKS("configs/kmacKeyStoreSS.pkcs12", "mackey", "password", "password");
 		Mac macSS = UtilsBox.prepareMacFunc("HMac-SHA1", mackeySS);
 		SecretKey mackeyBox = UtilsBox.getKeyKS("configs/kmacKeyStoreBox.pkcs12", "mackey", "password", "password");
 		Mac macBox = UtilsBox.prepareMacFunc("HMac-SHA1", mackeyBox);
 
+		/* RSAKeys */
+		PrivateKey kPriv = UtilsBox.readRSAPrivateKey("./certificates/BoxCert.pem");
 
 		/*--------- Build message ---------*/
 		byte[] msg = new byte[] { };
 		// send nonce
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(nonce.length));
 		msg = UtilsBox.byteArrConcat(msg, nonce);
+
+		// signature
+		byte[] sig = UtilsBox.sign(kPriv, "SHA256withDSA", msg);
+		msg = UtilsBox.byteArrConcat(msg, sig);
+		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(sig.length));
+
 		// Prepare kmac
 		msg = UtilsBox.byteArrConcat(msg, macSS.doFinal(msg));
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(macSS.getMacLength()));
+
 
 		
 		/* Send message */
@@ -76,9 +87,9 @@ class Box {
 
 		/* Get kmac */
 		int sizeKmac = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, reply.length-4, reply.length));
-		System.out.println("DEBUG sizekmac: " + sizeKmac);
+		// System.out.println("DEBUG sizekmac: " + sizeKmac);
 		byte[] buffKmacRCV = Arrays.copyOfRange(reply, reply.length-4-sizeKmac, reply.length-4);	// kmac received
-		System.out.println("DEBUG buffKmacRCV: " + buffKmacRCV.length);
+		// System.out.println("DEBUG buffKmacRCV: " + buffKmacRCV.length);
 		byte[] buffZRcv = Arrays.copyOfRange(reply, 0, reply.length-4-sizeKmac);	// Z of message received
 		byte[] buffKmacOWN = macBox.doFinal(buffZRcv);		// Z kmac own calculated
 		// verify rest of msg

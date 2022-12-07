@@ -22,9 +22,9 @@ Run: \
 ## Creation certificate
 
 ### Box
-`openssl genrsa -out RootCA.key 4096`
-`openssl req -new -x509 -days 1500 -key RootCA.key -out RootCA.crt`
-`openssl genrsa -out BoxCert.key 4096`
-`openssl req -new -key BoxCert.key -out BoxCert.csr`
-`openssl x509 -req -days 1000 -in BoxCert.csr -CA RootCA.crt -CAkey RootCA.key -CAcreateserial -out BoxCert.crt`
+`openssl genrsa -out RootCA.pem 4096`
+`openssl req -new -x509 -days 1500 -key RootCA.pem -out RootCA.crt`
+`openssl genrsa -out BoxCert.pem 4096`
+`openssl req -new -key BoxCert.pem -out BoxCert.csr`
+`openssl x509 -req -days 1000 -in BoxCert.csr -CA RootCA.crt -CAkey RootCA.pem -CAcreateserial -out BoxCert.crt`
 `cat RootCA.crt BoxCert.crt > CertChain.crt`
