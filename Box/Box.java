@@ -68,7 +68,7 @@ class Box {
 		msg = UtilsBox.byteArrConcat(msg, nonce);
 
 		// signature
-		byte[] sig = UtilsBox.sign(kPriv, "SHA256withDSA", msg);
+		byte[] sig = UtilsBox.sign(kPriv, "SHA256withRSA", msg);
 		msg = UtilsBox.byteArrConcat(msg, sig);
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(sig.length));
 

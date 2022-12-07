@@ -155,7 +155,9 @@ public class UtilsBox {
 
     }
 
-    public static byte[] sign(PrivateKey kPriv, String algorithm, byte[] message){
+    public static byte[] sign(PrivateKey kPriv, String algorithm, byte[] message)
+                                                            throws SignatureException, InvalidKeyException,
+                                                            NoSuchAlgorithmException, NoSuchProviderException {
 
         Signature signature = Signature.getInstance(algorithm, "BC");
         signature.initSign(kPriv);
