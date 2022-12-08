@@ -3,13 +3,16 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.Charset;
+import java.nio.file.*;
 import java.security.*;
 import javax.crypto.*;
 import javax.crypto.spec.*;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Properties;
 import java.util.Random;
-import java.security.spec.InvalidKeySpecException;
+import java.security.spec.*;
 import java.security.cert.*;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -107,5 +110,99 @@ public class UtilsServer {
 
 		return c;
 	}
+
+    public static X509Certificate getCertificate(String path) 
+                                        throws CertificateException, FileNotFoundException{
+
+		CertificateFactory cf = CertificateFactory.getInstance("X.509");
+		
+	    InputStream in = new BufferedInputStream(new FileInputStream(path));
+	    X509Certificate cert = (X509Certificate) cf.generateCertificate(in);
+
+		return cert;
+	}
+
+    public static PrivateKey readRSAPrivateKey(String path) 
+                                        throws NoSuchAlgorithmException, NoSuchProviderException,
+                                                InvalidKeySpecException, IOException{
+
+        String keyString = new String(Files.readAllBytes(Paths.get(path)), Charset.defaultCharset());
+    
+        String privateKeyPEM = keyString
+          .replace("-----BEGIN PRIVATE KEY-----", "")
+          .replaceAll(System.lineSeparator(), "")
+          .replace("-----END PRIVATE KEY-----", "");
+    
+        byte[] encoded = Base64.getDecoder().decode(privateKeyPEM);
+        KeyFactory kf = KeyFactory.getInstance("RSA", "BC");
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
+        PrivateKey key = kf.generatePrivate(keySpec);
+        return key;
+
+    }
+
+    public static byte[] sign(PrivateKey kPriv, String algorithm, byte[] message)
+                                                            throws SignatureException, InvalidKeyException,
+                                                            NoSuchAlgorithmException, NoSuchProviderException {
+
+        Signature signature = Signature.getInstance(algorithm, "BC");
+        signature.initSign(kPriv);
+        signature.update(message);
+        byte[]  sigBytes = signature.sign();
+
+        return sigBytes;
+    }
+
+    public static Boolean verifyKmac(byte[] message, Mac macF){
+        
+        int sizeKmac = UtilsServer.byteArrToInt(Arrays.copyOfRange(message, message.length-4, message.length));
+		System.out.println("DEBUG sizekmac: " + sizeKmac);
+		byte[] buffKmacRCV = Arrays.copyOfRange(message, message.length-4-sizeKmac, message.length-4);
+		System.out.println("DEBUG buffKmacRCV: " + buffKmacRCV.length);
+		byte[] buffZRcv = Arrays.copyOfRange(message, 0, message.length-4-sizeKmac);	// Z of message received
+		byte[] buffKmacOWN = macF.doFinal(buffZRcv);		// Z kmac own calculated
+        
+        return MessageDigest.isEqual(buffKmacRCV, buffKmacOWN);
+
+    }
+
+    public static X509Certificate getCertificateFromBytes(byte[] data) throws CertificateException{
+
+        InputStream dataStream = new BufferedInputStream(new ByteArrayInputStream(data));
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+	    X509Certificate cert = (X509Certificate) cf.generateCertificate(dataStream);
+
+		return cert;
+	}
+
+    public static Boolean verifyCert(X509Certificate cert, X509Certificate root){
+        try {
+            cert.verify(root.getPublicKey()); 
+            return true;
+        } 
+        catch (CertificateException | NoSuchAlgorithmException | 
+                InvalidKeyException | NoSuchProviderException 
+                | SignatureException e) {
+            System.out.println(e);
+            return false;
+        }
+    }
+
+    public static Boolean verifySig(String algorithm, PublicKey kPub, byte[] message, byte[] sigBytes)
+                                            throws SignatureException, InvalidKeyException,
+                                            NoSuchAlgorithmException {
+
+        Signature signature = Signature.getInstance(algorithm);
+        signature.initVerify(kPub);
+        signature.update(message);
+
+        return signature.verify(sigBytes);
+
+    }
+
+    public static byte[] fileToByte(String path) throws IOException{
+        byte[] bytes = Files.readAllBytes(Paths.get(path));
+        return bytes;
+    }
 
 }

@@ -167,4 +167,44 @@ public class UtilsBox {
         return sigBytes;
     }
 
+
+    public static Boolean verifyCert(X509Certificate cert, X509Certificate root){
+        try {
+            cert.verify(root.getPublicKey()); 
+            return true;
+        } 
+        catch (CertificateException | NoSuchAlgorithmException | 
+                InvalidKeyException | NoSuchProviderException 
+                | SignatureException e) {
+            System.out.println(e);
+            return false;
+        }
+    }
+
+    public static byte[] fileToByte(String path) throws IOException{
+        byte[] bytes = Files.readAllBytes(Paths.get(path));
+        return bytes;
+    }
+
+    public static X509Certificate getCertificateFromBytes(byte[] data) throws CertificateException{
+
+        InputStream dataStream = new BufferedInputStream(new ByteArrayInputStream(data));
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+	    X509Certificate cert = (X509Certificate) cf.generateCertificate(dataStream);
+
+		return cert;
+	}
+
+    public static Boolean verifySig(String algorithm, PublicKey kPub, byte[] message, byte[] sigBytes)
+                                            throws SignatureException, InvalidKeyException,
+                                            NoSuchAlgorithmException {
+
+        Signature signature = Signature.getInstance(algorithm);
+        signature.initVerify(kPub);
+        signature.update(message);
+
+        return signature.verify(sigBytes);
+
+    }
+
 }

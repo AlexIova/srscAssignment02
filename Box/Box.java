@@ -60,12 +60,19 @@ class Box {
 
 		/* RSAKeys */
 		PrivateKey kPriv = UtilsBox.readRSAPrivateKey("./certificates/BoxCert.pem");
+		X509Certificate cert = UtilsBox.getCertificate("./certificates/BoxCert.crt");
 
 		/*--------- Build message ---------*/
 		byte[] msg = new byte[] { };
 		// send nonce
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(nonce.length));
 		msg = UtilsBox.byteArrConcat(msg, nonce);
+
+		// send certificate
+		byte[] certByte = UtilsBox.fileToByte("./certificates/BoxCert.crt");
+		System.out.println("Lunghezza: " + certByte.length);
+		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(certByte.length));
+		msg = UtilsBox.byteArrConcat(msg, certByte);
 
 		// signature
 		byte[] sig = UtilsBox.sign(kPriv, "SHA256withRSA", msg);
@@ -82,8 +89,12 @@ class Box {
 		UtilsBox.sendTCP(output, msg);
 
 
+		int i = 0;		// Pointer from left
+		int j = 0;		// Pointer from right
 		/* Receive reply */
-		byte[] reply = (byte[]) UtilsBox.recvTCP(input); 
+		byte[] reply = (byte[]) UtilsBox.recvTCP(input);
+
+		j = reply.length;
 
 		/* Get kmac */
 		int sizeKmac = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, reply.length-4, reply.length));
@@ -92,22 +103,38 @@ class Box {
 		// System.out.println("DEBUG buffKmacRCV: " + buffKmacRCV.length);
 		byte[] buffZRcv = Arrays.copyOfRange(reply, 0, reply.length-4-sizeKmac);	// Z of message received
 		byte[] buffKmacOWN = macBox.doFinal(buffZRcv);		// Z kmac own calculated
-		// verify rest of msg
-		if( MessageDigest.isEqual(buffKmacRCV, buffKmacOWN) ){
-			System.out.println("Validated Message SS");
-		}
-		else {
+		if( !MessageDigest.isEqual(buffKmacRCV, buffKmacOWN) ){
 			System.out.println("Problem validating message SS");
 		}
-		
+		j = j - sizeKmac - 4;		// size of kmac and size of int
 
-		/* Get nonce */
+		// Get nonce
 		int sizeNonceReply = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, 0, 4));
 		byte[] nonceReply = Arrays.copyOfRange(reply, 4, 4 + sizeNonceReply);
-		// Compare nonces
 		if (Arrays.equals(nonce, nonceReply)){
 			System.out.println("Nonce corresponds");
 		}
+		i += 4 + sizeNonceReply;
+		
+		// Get certificates
+		int sizeCerts = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
+		X509Certificate rootCert = UtilsBox.getCertificate("./certificates/RootCA.crt");
+		X509Certificate certStreamServer = UtilsBox.getCertificateFromBytes(Arrays.copyOfRange(reply, i+4, sizeCerts+i+4));
+		if(!UtilsBox.verifyCert(certStreamServer, rootCert)){
+			System.out.println("ISSUE verifying certificate");
+			System.exit(1);
+		}
+
+		// Verify signature
+		int sigSize = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, j-4, j));
+		j -= 4;
+		byte[] sigBox = Arrays.copyOfRange(reply, j-sigSize, j);
+		j -= sigSize;
+		PublicKey kPubBox = certStreamServer.getPublicKey();
+		if(!UtilsBox.verifySig("SHA256withRSA", kPubBox, Arrays.copyOfRange(reply, 0, j), sigBox)){
+			System.out.println("Could not verify signature of StreamServer");
+		}
+
 
 		UtilsBox.closeTCPConns(socket, input, output);
 
