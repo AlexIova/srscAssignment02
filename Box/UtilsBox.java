@@ -253,4 +253,25 @@ public class UtilsBox {
         return keyFac.generatePublic(x509KeySpec);
     }
 
+
+    public static Boolean verifyHash(byte[] mine, byte[] toVer, String hCheck)
+                                                throws NoSuchAlgorithmException, NoSuchProviderException{
+
+        MessageDigest hfun = MessageDigest.getInstance(hCheck, "BC");
+        byte[] buff = hfun.digest(mine);
+
+        return MessageDigest.isEqual(buff, toVer);
+    }
+
+    public static int getHashLen(String hCheck) throws NoSuchAlgorithmException, NoSuchProviderException{
+        return MessageDigest.getInstance(hCheck, "BC").getDigestLength();
+    }
+
+    public static byte[] getHash(String hCheck, byte[] buff) throws NoSuchAlgorithmException, NoSuchProviderException{
+
+        MessageDigest hfun = MessageDigest.getInstance(hCheck, "BC");
+
+        return hfun.digest(buff);
+    }
+
 }

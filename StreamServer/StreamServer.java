@@ -51,6 +51,9 @@ class StreamServer {
 		ObjectOutputStream output = UtilsServer.outTCPStream(socket);
 		ObjectInputStream input = UtilsServer.inTCPStream(socket);
 
+		/* Variables */
+		String hashFunc = "SHA256";
+
 
 		/* Prepare kmac functions */
 		SecretKey mackeyBox = UtilsServer.getKeyKS("configs/kmacKeyStoreBox.pkcs12", "mackey", "password", "password");
@@ -66,9 +69,7 @@ class StreamServer {
 		
 		// Verify kmac
 		int sizeKmac = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, reply.length-4, reply.length));
-		// System.out.println("DEBUG sizekmac: " + sizeKmac);
 		byte[] buffKmacRCV = Arrays.copyOfRange(reply, reply.length-4-sizeKmac, reply.length-4);
-		// System.out.println("DEBUG buffKmacRCV: " + buffKmacRCV.length);
 		byte[] buffZRcv = Arrays.copyOfRange(reply, 0, reply.length-4-sizeKmac);	// Z of message received
 		byte[] buffKmacOWN = macSS.doFinal(buffZRcv);		// Z kmac own calculated
 		if(!MessageDigest.isEqual(buffKmacRCV, buffKmacOWN))
@@ -101,7 +102,6 @@ class StreamServer {
 		serverKeyAgree.doPhase(boxDHkeyPub, true);
 		System.out.println(UtilsServer.toHex(serverKeyAgree.generateSecret()));
 
-
 		// Get certificates
 		int sizeCerts = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
 		X509Certificate rootCert = UtilsServer.getCertificate("./certificates/RootCA.crt");
@@ -113,6 +113,16 @@ class StreamServer {
 		i += (4 + sizeCerts);
 
 
+		/* TODO: move this part up, should be done before, I guess... */
+
+		// Verify hash
+		int hashSize = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, j-4, j));
+		j -= 4;
+		byte[] buffHash = Arrays.copyOfRange(reply, j-hashSize, j);
+		j -= hashSize;
+		if(!UtilsServer.verifyHash(Arrays.copyOfRange(reply, 0, j), buffHash, hashFunc)){
+			System.out.println("Could not verify hash of Box");
+		}
 
 		// Verify signature
 		int sigSize = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, j-4, j));
@@ -123,6 +133,8 @@ class StreamServer {
 		if(!UtilsServer.verifySig("SHA256withRSA", kPubBox, Arrays.copyOfRange(reply, 0, j), sigBox)){
 			System.out.println("Could not verify signature of Box");
 		}
+
+
 
 		/*--------------------------- Build message ---------------------------*/
 		byte[] msg = new byte[] { };
@@ -148,10 +160,15 @@ class StreamServer {
 		msg = UtilsServer.byteArrConcat(msg, sig);
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(sig.length));
 
+		// hash
+		msg = UtilsServer.byteArrConcat(msg, UtilsServer.getHash(hashFunc, msg));
+		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(UtilsServer.getHashLen(hashFunc)));
+
 
 		// Prepare kmac
 		msg = UtilsServer.byteArrConcat(msg, macBox.doFinal(msg));
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(macBox.getMacLength()));
+
 
 		UtilsServer.sendTCP(output, msg);
 

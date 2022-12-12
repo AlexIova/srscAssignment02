@@ -206,7 +206,6 @@ public class UtilsServer {
         return bytes;
     }
 
-
     public static KeyPair getDHParam(int size) throws NoSuchAlgorithmException, InvalidAlgorithmParameterException,
                                                 NoSuchProviderException {
 
@@ -215,7 +214,6 @@ public class UtilsServer {
 
         return keyGenerator.genKeyPair();
     }
-
 
     public static KeyPair getDHFromParam(BigInteger p, BigInteger g) throws NoSuchAlgorithmException,
                                                 InvalidAlgorithmParameterException, NoSuchProviderException {
@@ -226,7 +224,6 @@ public class UtilsServer {
 
         return keyGen.generateKeyPair();
     }
-
 
     public static String toHex(byte[] data){
         int length = data.length;
@@ -243,7 +240,6 @@ public class UtilsServer {
         return buf.toString();
     }
 
-    
     public static PublicKey publicDHkeyFromBytes(byte[] bytes) throws 
                                                 NoSuchAlgorithmException, NoSuchProviderException, 
                                                 InvalidKeySpecException{
@@ -254,6 +250,26 @@ public class UtilsServer {
         PublicKey pubK = keyFac.generatePublic(x509KeySpec);
 
         return pubK;
+    }
+
+    public static Boolean verifyHash(byte[] mine, byte[] toVer, String hCheck)
+                                                throws NoSuchAlgorithmException, NoSuchProviderException{
+
+        MessageDigest hfun = MessageDigest.getInstance(hCheck, "BC");
+        byte[] buff = hfun.digest(mine);
+
+        return MessageDigest.isEqual(buff, toVer);
+    }
+
+    public static int getHashLen(String hCheck) throws NoSuchAlgorithmException, NoSuchProviderException{
+        return MessageDigest.getInstance(hCheck, "BC").getDigestLength();
+    }
+
+    public static byte[] getHash(String hCheck, byte[] buff) throws NoSuchAlgorithmException, NoSuchProviderException{
+
+        MessageDigest hfun = MessageDigest.getInstance(hCheck, "BC");
+
+        return hfun.digest(buff);
     }
 
 }

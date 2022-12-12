@@ -52,6 +52,10 @@ class Box {
 		// System.out.println("DEBUG nonce:\t" + UtilsBox.byteArrToInt(nonce));
 
 
+		/* Variables */
+		String hashFunc = "SHA256";
+
+
 		/* Prepare kmac functions */
 		SecretKey mackeySS = UtilsBox.getKeyKS("configs/kmacKeyStoreSS.pkcs12", "mackey", "password", "password");
 		Mac macSS = UtilsBox.prepareMacFunc("HMac-SHA1", mackeySS);
@@ -83,7 +87,7 @@ class Box {
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(sizeParamDH));
 
 		// certificate
-		byte[] certByte = UtilsBox.fileToByte("./certificates/BoxCert.crt");
+		byte[] certByte = UtilsBox.fileToByte("./certificates/BoxCertRSA2048.crt");
 		// System.out.println("Lunghezza certificato: " + certByte.length);
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(certByte.length));
 		msg = UtilsBox.byteArrConcat(msg, certByte);
@@ -92,6 +96,10 @@ class Box {
 		byte[] sig = UtilsBox.sign(kPriv, "SHA256withRSA", msg);
 		msg = UtilsBox.byteArrConcat(msg, sig);
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(sig.length));
+
+		// hash
+		msg = UtilsBox.byteArrConcat(msg, UtilsBox.getHash(hashFunc, msg));
+		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(UtilsBox.getHashLen(hashFunc)));
 
 		// Prepare kmac
 		msg = UtilsBox.byteArrConcat(msg, macSS.doFinal(msg));
@@ -105,11 +113,11 @@ class Box {
 
 		/******************** Receive reply ********************/
 
-		int i = 0;		// Pointer from left
-		int j = 0;		// Pointer from right
+		
 		byte[] reply = (byte[]) UtilsBox.recvTCP(input);
 
-		j = reply.length;
+		int i = 0;					// Pointer from left
+		int j = reply.length;		// Pointer from right
 
 		/* Get kmac */
 		int sizeKmac = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, reply.length-4, reply.length));
@@ -145,7 +153,6 @@ class Box {
 		boxKeyAgree.doPhase(servDHkeyPub, true);
 		System.out.println(UtilsBox.toHex(boxKeyAgree.generateSecret()));
 
-		
 		// Get certificates
 		int sizeCerts = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
 		X509Certificate rootCert = UtilsBox.getCertificate("./certificates/RootCA.crt");
@@ -155,6 +162,16 @@ class Box {
 			System.exit(1);
 		}
 
+		/* TODO: move this part up, should be done before, I guess... */
+		// Verify hash
+		int hashSize = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, j-4, j));
+		j -= 4;
+		byte[] buffHash = Arrays.copyOfRange(reply, j-hashSize, j);
+		j -= hashSize;
+		if(!UtilsBox.verifyHash(Arrays.copyOfRange(reply, 0, j), buffHash, hashFunc)){
+			System.out.println("Could not verify hash of StreamServer");
+		}
+		
 		// Verify signature
 		int sigSize = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, j-4, j));
 		j -= 4;
