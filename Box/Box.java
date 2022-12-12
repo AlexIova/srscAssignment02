@@ -62,15 +62,29 @@ class Box {
 		PrivateKey kPriv = UtilsBox.readRSAPrivateKey("./certificates/BoxCert.pem");
 		X509Certificate cert = UtilsBox.getCertificate("./certificates/BoxCert.crt");
 
+		/* Get DH parameters */
+		int sizeParamDH = 2048;
+		KeyPair boxPair = UtilsBox.getDHParam(sizeParamDH);
+		KeyAgreement boxKeyAgree = KeyAgreement.getInstance("DH", "BC");
+		boxKeyAgree.init(boxPair.getPrivate());
+
+
 		/*--------- Build message ---------*/
 		byte[] msg = new byte[] { };
-		// send nonce
+		// nonce
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(nonce.length));
 		msg = UtilsBox.byteArrConcat(msg, nonce);
 
-		// send certificate
+		// dh parameters
+		byte[] boxDHbytes = boxPair.getPublic().getEncoded();
+		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(boxDHbytes.length));
+		System.out.println("size dh: " + boxDHbytes.length);
+		msg = UtilsBox.byteArrConcat(msg, boxDHbytes);
+		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(sizeParamDH));
+
+		// certificate
 		byte[] certByte = UtilsBox.fileToByte("./certificates/BoxCert.crt");
-		System.out.println("Lunghezza: " + certByte.length);
+		// System.out.println("Lunghezza certificato: " + certByte.length);
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(certByte.length));
 		msg = UtilsBox.byteArrConcat(msg, certByte);
 
@@ -83,15 +97,16 @@ class Box {
 		msg = UtilsBox.byteArrConcat(msg, macSS.doFinal(msg));
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(macSS.getMacLength()));
 
+		System.out.println("size of msg: " + msg.length);
 
-		
 		/* Send message */
 		UtilsBox.sendTCP(output, msg);
 
 
+		/******************** Receive reply ********************/
+
 		int i = 0;		// Pointer from left
 		int j = 0;		// Pointer from right
-		/* Receive reply */
 		byte[] reply = (byte[]) UtilsBox.recvTCP(input);
 
 		j = reply.length;
@@ -115,6 +130,21 @@ class Box {
 			System.out.println("Nonce corresponds");
 		}
 		i += 4 + sizeNonceReply;
+
+
+		// Get DH parameters
+		int lenPubDHkey = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
+		byte[] pDHserv = Arrays.copyOfRange(reply, i+4, i+4+lenPubDHkey);
+		i += 4 + lenPubDHkey;
+		PublicKey servDHkeyPub = UtilsBox.publicDHkeyFromBytes(pDHserv);
+		/* Prepare DH key */
+		DHParameterSpec dhServParam = ( (javax.crypto.interfaces.DHPublicKey) servDHkeyPub).getParams();
+		KeyPairGenerator boxKpairGen = KeyPairGenerator.getInstance("DH", "BC");
+        boxKpairGen.initialize(dhServParam);
+        KeyPair servPair = boxKpairGen.generateKeyPair();
+		boxKeyAgree.doPhase(servDHkeyPub, true);
+		System.out.println(UtilsBox.toHex(boxKeyAgree.generateSecret()));
+
 		
 		// Get certificates
 		int sizeCerts = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
