@@ -1,4 +1,5 @@
 import java.io.*;
+import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.ServerSocket;
@@ -203,6 +204,56 @@ public class UtilsServer {
     public static byte[] fileToByte(String path) throws IOException{
         byte[] bytes = Files.readAllBytes(Paths.get(path));
         return bytes;
+    }
+
+
+    public static KeyPair getDHParam(int size) throws NoSuchAlgorithmException, InvalidAlgorithmParameterException,
+                                                NoSuchProviderException {
+
+        KeyPairGenerator keyGenerator = KeyPairGenerator.getInstance("DH", "BC");
+        keyGenerator.initialize(size);
+
+        return keyGenerator.genKeyPair();
+    }
+
+
+    public static KeyPair getDHFromParam(BigInteger p, BigInteger g) throws NoSuchAlgorithmException,
+                                                InvalidAlgorithmParameterException, NoSuchProviderException {
+
+        DHParameterSpec dhParams = new DHParameterSpec(p, g);
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("DH", "BC");
+        keyGen.initialize(dhParams);
+
+        return keyGen.generateKeyPair();
+    }
+
+
+    public static String toHex(byte[] data){
+        int length = data.length;
+        StringBuffer buf = new StringBuffer();
+        String	digits = "0123456789abcdef";
+        
+        for (int i = 0; i != length; i++){
+            int	v = data[i] & 0xff;
+            
+            buf.append(digits.charAt(v >> 4));
+            buf.append(digits.charAt(v & 0xf));
+        }
+        
+        return buf.toString();
+    }
+
+    
+    public static PublicKey publicDHkeyFromBytes(byte[] bytes) throws 
+                                                NoSuchAlgorithmException, NoSuchProviderException, 
+                                                InvalidKeySpecException{
+        
+        KeyFactory keyFac = KeyFactory.getInstance("DH", "BC");
+        X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(bytes);
+
+        PublicKey pubK = keyFac.generatePublic(x509KeySpec);
+
+        return pubK;
     }
 
 }

@@ -26,13 +26,12 @@ import java.security.*;
 import javax.crypto.*;
 import javax.crypto.spec.*;
 import javax.lang.model.type.NullType;
-import java.security.Security;
+
 import java.security.cert.*;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Properties;
 import java.nio.charset.StandardCharsets;
-
 
 
 
@@ -59,7 +58,6 @@ class StreamServer {
 		SecretKey mackeySS = UtilsServer.getKeyKS("configs/kmacKeyStoreSS.pkcs12", "mackey", "password", "password");
 		Mac macSS = UtilsServer.prepareMacFunc("HmacSHA1", mackeySS);
 
-		
 		/*--------------------------- Receive message ---------------------------*/
 		byte[] reply = (byte[]) UtilsServer.recvTCP(input);
 
@@ -84,6 +82,26 @@ class StreamServer {
 		i += (4 + sizeNonce);
 
 
+		// Get DH parameters
+		int lenPubDHkey = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
+		System.out.println("len dh: " + lenPubDHkey);
+		byte[] pDHbox = Arrays.copyOfRange(reply, i+4, i+4+lenPubDHkey);
+		System.out.println("pDHbox:" + pDHbox.length);
+		i += (4 + lenPubDHkey);
+		PublicKey boxDHkeyPub = UtilsServer.publicDHkeyFromBytes(pDHbox);
+		int sizeParamDH = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
+		i += 4;
+		/* Prepare DH key */
+		DHParameterSpec dhBoxParam = ( (javax.crypto.interfaces.DHPublicKey) boxDHkeyPub).getParams();		
+        KeyPairGenerator servKpairGen = KeyPairGenerator.getInstance("DH", "BC");
+        servKpairGen.initialize(dhBoxParam);
+        KeyPair servPair = servKpairGen.generateKeyPair();
+		KeyAgreement serverKeyAgree = KeyAgreement.getInstance("DH", "BC");
+        serverKeyAgree.init(servPair.getPrivate());
+		serverKeyAgree.doPhase(boxDHkeyPub, true);
+		System.out.println(UtilsServer.toHex(serverKeyAgree.generateSecret()));
+
+
 		// Get certificates
 		int sizeCerts = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
 		X509Certificate rootCert = UtilsServer.getCertificate("./certificates/RootCA.crt");
@@ -92,6 +110,9 @@ class StreamServer {
 			System.out.println("ISSUE verifying certificate");
 			System.exit(1);
 		}
+		i += (4 + sizeCerts);
+
+
 
 		// Verify signature
 		int sigSize = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, j-4, j));
@@ -108,6 +129,12 @@ class StreamServer {
 		// send nonce
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(nonce.length));
 		msg = UtilsServer.byteArrConcat(msg, nonce);
+
+
+		// Send DH parameters
+		byte[] servDHbytes = servPair.getPublic().getEncoded();
+		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(servDHbytes.length));
+		msg = UtilsServer.byteArrConcat(msg, servDHbytes);
 
 		// Send certificate
 		byte[] certByte = UtilsServer.fileToByte("./certificates/StreamServerCert.crt");

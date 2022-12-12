@@ -21,6 +21,7 @@ import javax.crypto.*;
 import javax.crypto.spec.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.net.SocketAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -205,6 +206,51 @@ public class UtilsBox {
 
         return signature.verify(sigBytes);
 
+    }
+
+    public static KeyPair getDHParam(int size) throws NoSuchAlgorithmException, InvalidAlgorithmParameterException,
+                                                NoSuchProviderException {
+
+        KeyPairGenerator keyGenerator = KeyPairGenerator.getInstance("DH", "BC");
+        keyGenerator.initialize(size);
+
+        return keyGenerator.genKeyPair();
+    }
+
+    public static KeyPair getDHFromParam(BigInteger p, BigInteger g) throws NoSuchAlgorithmException,
+                                                InvalidAlgorithmParameterException, NoSuchProviderException {
+
+        DHParameterSpec dhParams = new DHParameterSpec(p, g);
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("DH", "BC");
+        keyGen.initialize(dhParams);
+
+        return keyGen.generateKeyPair();
+    }
+
+    public static String toHex(byte[] data){
+        int length = data.length;
+        StringBuffer buf = new StringBuffer();
+        String	digits = "0123456789abcdef";
+        
+        for (int i = 0; i != length; i++){
+            int	v = data[i] & 0xff;
+            
+            buf.append(digits.charAt(v >> 4));
+            buf.append(digits.charAt(v & 0xf));
+        }
+        
+        return buf.toString();
+    }
+
+
+    public static PublicKey publicDHkeyFromBytes(byte[] bytes) throws 
+                                                NoSuchAlgorithmException, NoSuchProviderException, 
+                                                InvalidKeySpecException{
+        
+        KeyFactory keyFac = KeyFactory.getInstance("DH", "BC");
+        X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(bytes);
+
+        return keyFac.generatePublic(x509KeySpec);
     }
 
 }
