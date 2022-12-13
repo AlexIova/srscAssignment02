@@ -53,13 +53,14 @@ class StreamServer {
 
 		/* Variables */
 		String hashFunc = "SHA256";
-
+		String kMahInit = "HMac-SHA1";
+		String initSig = "SHA256withRSA";
 
 		/* Prepare kmac functions */
 		SecretKey mackeyBox = UtilsServer.getKeyKS("configs/kmacKeyStoreBox.pkcs12", "mackey", "password", "password");
-		Mac macBox = UtilsServer.prepareMacFunc("HmacSHA1", mackeyBox);
+		Mac macBox = UtilsServer.prepareMacFunc(kMahInit, mackeyBox);
 		SecretKey mackeySS = UtilsServer.getKeyKS("configs/kmacKeyStoreSS.pkcs12", "mackey", "password", "password");
-		Mac macSS = UtilsServer.prepareMacFunc("HmacSHA1", mackeySS);
+		Mac macSS = UtilsServer.prepareMacFunc(kMahInit, mackeySS);
 
 		/*--------------------------- Receive message ---------------------------*/
 		byte[] reply = (byte[]) UtilsServer.recvTCP(input);
@@ -130,7 +131,7 @@ class StreamServer {
 		byte[] sigBox = Arrays.copyOfRange(reply, j-sigSize, j);
 		j -= sigSize;
 		PublicKey kPubBox = certBox.getPublicKey();
-		if(!UtilsServer.verifySig("SHA256withRSA", kPubBox, Arrays.copyOfRange(reply, 0, j), sigBox)){
+		if(!UtilsServer.verifySig(initSig, kPubBox, Arrays.copyOfRange(reply, 0, j), sigBox)){
 			System.out.println("Could not verify signature of Box");
 		}
 
@@ -156,7 +157,7 @@ class StreamServer {
 
 		// Send signature
 		PrivateKey kPriv = UtilsServer.readRSAPrivateKey("./certificates/StreamServerCert.pem");
-		byte[] sig = UtilsServer.sign(kPriv, "SHA256withRSA", msg);
+		byte[] sig = UtilsServer.sign(kPriv, initSig, msg);
 		msg = UtilsServer.byteArrConcat(msg, sig);
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(sig.length));
 

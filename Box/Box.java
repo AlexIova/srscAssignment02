@@ -54,15 +54,17 @@ class Box {
 
 		/* Variables */
 		String hashFunc = "SHA256";
+		String kMahInit = "HMac-SHA1";
+		String initSig = "SHA256withRSA";
 
 
 		/* Prepare kmac functions */
 		SecretKey mackeySS = UtilsBox.getKeyKS("configs/kmacKeyStoreSS.pkcs12", "mackey", "password", "password");
-		Mac macSS = UtilsBox.prepareMacFunc("HMac-SHA1", mackeySS);
+		Mac macSS = UtilsBox.prepareMacFunc(kMahInit, mackeySS);
 		SecretKey mackeyBox = UtilsBox.getKeyKS("configs/kmacKeyStoreBox.pkcs12", "mackey", "password", "password");
-		Mac macBox = UtilsBox.prepareMacFunc("HMac-SHA1", mackeyBox);
+		Mac macBox = UtilsBox.prepareMacFunc(kMahInit, mackeyBox);
 
-		/* RSAKeys */
+		/* RSAKeys for signature*/
 		PrivateKey kPriv = UtilsBox.readRSAPrivateKey("./certificates/BoxCert.pem");
 		X509Certificate cert = UtilsBox.getCertificate("./certificates/BoxCert.crt");
 
@@ -93,7 +95,7 @@ class Box {
 		msg = UtilsBox.byteArrConcat(msg, certByte);
 
 		// signature
-		byte[] sig = UtilsBox.sign(kPriv, "SHA256withRSA", msg);
+		byte[] sig = UtilsBox.sign(kPriv, initSig, msg);
 		msg = UtilsBox.byteArrConcat(msg, sig);
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(sig.length));
 
@@ -178,7 +180,7 @@ class Box {
 		byte[] sigBox = Arrays.copyOfRange(reply, j-sigSize, j);
 		j -= sigSize;
 		PublicKey kPubBox = certStreamServer.getPublicKey();
-		if(!UtilsBox.verifySig("SHA256withRSA", kPubBox, Arrays.copyOfRange(reply, 0, j), sigBox)){
+		if(!UtilsBox.verifySig(initSig, kPubBox, Arrays.copyOfRange(reply, 0, j), sigBox)){
 			System.out.println("Could not verify signature of StreamServer");
 		}
 
