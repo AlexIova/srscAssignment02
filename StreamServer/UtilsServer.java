@@ -159,9 +159,7 @@ public class UtilsServer {
     public static Boolean verifyKmac(byte[] message, Mac macF){
         
         int sizeKmac = UtilsServer.byteArrToInt(Arrays.copyOfRange(message, message.length-4, message.length));
-		System.out.println("DEBUG sizekmac: " + sizeKmac);
 		byte[] buffKmacRCV = Arrays.copyOfRange(message, message.length-4-sizeKmac, message.length-4);
-		System.out.println("DEBUG buffKmacRCV: " + buffKmacRCV.length);
 		byte[] buffZRcv = Arrays.copyOfRange(message, 0, message.length-4-sizeKmac);	// Z of message received
 		byte[] buffKmacOWN = macF.doFinal(buffZRcv);		// Z kmac own calculated
         
@@ -333,7 +331,6 @@ public class UtilsServer {
     public static X509Certificate getSpecificCertificate(String alg, X509Certificate[] certArr){
 
         for(X509Certificate cert : certArr){
-            System.out.println("algo in cert: " + cert.getPublicKey().getAlgorithm());
             if(cert.getPublicKey().getAlgorithm().equals(alg)){
                 return cert;
             }
@@ -376,7 +373,6 @@ public class UtilsServer {
 	}
 
     public static String chooseCertificate(String alg){
-        System.out.println("digsig: " + alg);
         if(alg.equals("SHA256withRSA")){
             return "./certificates/ServerCertRSA2048.crt";
         } 
@@ -421,7 +417,6 @@ public class UtilsServer {
             .replaceAll(System.lineSeparator(), "")
             .replace("-----END PRIVATE KEY-----", "");
 
-        System.out.println("keystring:\n" + privateKeyPEM);
         byte[] encoded = Base64.getDecoder().decode(privateKeyPEM);
         KeyFactory kf = KeyFactory.getInstance(type, "BC");
         PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);

@@ -1,24 +1,3 @@
-/*
- * 
- * hjStreamServer.java 
- * Implementatio of a Java-based Streaming Server allowing the
- * the real time streaming of movies encoded in local files
- * The Streaming Server transmits the video frames for real time streaming
- * based (carried in)  UDP packets.
- * Clients can play the streams in real time if they are able to
- * decode the content of the frames in the UDP packets (FFMPEG encoding)
- *
- * To start the Streaming Server use:
- * hjStreamServer <file> <ip address for dissemination> <port dissemination>
- * 
- * Example: hjStreamServer cars.dat localhost 9999
- * In this case the Streaming server will send the movie to localhost port 999
- * where "someone" - a user using a visualizaton tool such as VLC or a BOX
- * is waiting for.
- * There are some available movies in the directory movies. This is the
- * the directory where the server has the movies it can send.
-*/
-
 import java.io.*;
 import java.math.BigInteger;
 import java.net.*;
@@ -77,7 +56,6 @@ class StreamServer {
 			System.out.println("Problem validating message Box");
 		j -= (sizeKmac + 4);		// size of kmac and size of int
 
-
 		// Get nonce
 		int sizeNonce = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, 0, 4));
 		byte[] nonce = Arrays.copyOfRange(reply, 4, 4+sizeNonce);
@@ -87,14 +65,11 @@ class StreamServer {
 		int sizeCS = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
 		i += 4;
 		String cs = UtilsServer.chooseCS(Arrays.copyOfRange(reply, i, i+sizeCS), "./configs/preferredCipherSuites");
-		System.out.println("Ciphersuite chosen: " + cs);
 		i += sizeCS;
 
 		// Get DH parameters
 		int lenPubDHkey = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
-		System.out.println("len dh: " + lenPubDHkey);
 		byte[] pDHbox = Arrays.copyOfRange(reply, i+4, i+4+lenPubDHkey);
-		System.out.println("pDHbox:" + pDHbox.length);
 		i += (4 + lenPubDHkey);
 		PublicKey boxDHkeyPub = UtilsServer.publicDHkeyFromBytes(pDHbox);
 		int sizeParamDH = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
@@ -143,7 +118,6 @@ class StreamServer {
 			System.out.println("Could not verify signature of Box");
 		}
 
-
 		// Get algs
         Properties properties = UtilsServer.parserDictionary(cs, "./configs/dictionaryCipherSuites");
 		String digSig = properties.getProperty("digital-signature");
@@ -162,7 +136,7 @@ class StreamServer {
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(nonce.length));
 		msg = UtilsServer.byteArrConcat(msg, nonce);
 
-		/* Decide ciphersuite */
+		// send ciphersuite
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(cs.getBytes().length));
 		msg = UtilsServer.byteArrConcat(msg, cs.getBytes());
 
@@ -170,11 +144,9 @@ class StreamServer {
 		byte[] servDHbytes = servPair.getPublic().getEncoded();
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(servDHbytes.length));
 		msg = UtilsServer.byteArrConcat(msg, servDHbytes);
-		System.out.println("lenDH: " + servDHbytes.length);
 
 		// Send certificate
 		byte[] certByte = UtilsServer.fileToByte(UtilsServer.chooseCertificate(digSig));
-		System.out.println("Lunghezza: " + certByte.length);
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(certByte.length));
 		msg = UtilsServer.byteArrConcat(msg, certByte);
 
@@ -188,7 +160,6 @@ class StreamServer {
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.getHash(hashFunc, msg));
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(UtilsServer.getHashLen(hashFunc)));
 
-
 		// Prepare kmac
 		msg = UtilsServer.byteArrConcat(msg, macBox.doFinal(msg));
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(macBox.getMacLength()));
@@ -198,6 +169,11 @@ class StreamServer {
 
 		serverSocket.close();
 		UtilsServer.closeTCPConns(socket, input, output);
+
+
+		/********* BEGIN UDP CONNECTION *********/
+
+
 
 	}
 
