@@ -156,6 +156,42 @@ public class UtilsBox {
 
     }
 
+    public static PrivateKey readGeneralPrivateKey(String alg) 
+                                throws NoSuchAlgorithmException, InvalidKeySpecException, 
+                                        IOException, NoSuchProviderException {
+
+        String path;
+        String type;
+        if(alg.equals("SHA256withRSA")){
+            path =  "./certificates/BoxCertRSA2048.pem";
+            type = "RSA";
+        } 
+        else if (alg.equals("SHA256withDSA")){
+            path = "./certificates/BoxDSA2048.pem";
+            type = "DSA";
+        } 
+        else if (alg.equals("ECDSA")){
+            path = "./certificates/BoxECDSAsecp256r1.pem";
+            type = "EC";
+        }
+        else {
+            return null;
+        }
+        String keyString = new String(Files.readAllBytes(Paths.get(path)), Charset.defaultCharset());
+
+        String privateKeyPEM = keyString
+            .replace("-----BEGIN PRIVATE KEY-----", "")
+            .replaceAll(System.lineSeparator(), "")
+            .replace("-----END PRIVATE KEY-----", "");
+
+        byte[] encoded = Base64.getDecoder().decode(privateKeyPEM);
+        KeyFactory kf = KeyFactory.getInstance(type, "BC");
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
+        PrivateKey key = kf.generatePrivate(keySpec);
+        return key;    
+
+    }
+
     public static byte[] sign(PrivateKey kPriv, String algorithm, byte[] message)
                                                             throws SignatureException, InvalidKeyException,
                                                             NoSuchAlgorithmException, NoSuchProviderException {
@@ -327,7 +363,7 @@ public class UtilsBox {
 
         String hashFunc;
         if(size == 128){
-            hashFunc = "SHA1";
+            hashFunc = "MD5";
         }
         else if(size == 256){
             hashFunc = "SHA256";
@@ -341,4 +377,69 @@ public class UtilsBox {
 
     }
 
+    public static void sendUDP(DatagramSocket sock, byte[] msg, String hostname, int port) throws IOException{
+        
+        InetSocketAddress addr = new InetSocketAddress( hostname, port);
+        sock.send(new DatagramPacket(msg, msg.length, addr));
+
+    }
+
+
+    public static byte[] preparePacketMac(byte[] data, Cipher symC, PrivateKey sigKey, String digSig, Mac macF) 
+                                            throws IllegalBlockSizeException, SignatureException, 
+                                                    BadPaddingException, InvalidKeyException, 
+                                                    NoSuchAlgorithmException, NoSuchProviderException {
+        
+        byte[] msg = new byte[] { };
+        byte[] enc = symC.doFinal(data);
+        msg = byteArrConcat(msg, enc);
+        byte[] signature = sign(sigKey, digSig, msg);
+        msg = byteArrConcat(msg, intToByteArr(signature.length));
+        msg = byteArrConcat(msg, signature);
+        byte[] mac = macF.doFinal(msg);
+        msg = byteArrConcat(msg, mac);
+    
+        return msg;
+
+    }
+
+
+    public static byte[] preparePacketHash(byte[] data, Cipher symC, PrivateKey sigKey, String digSig, MessageDigest hashF) 
+                                            throws IllegalBlockSizeException, SignatureException, 
+                                                    BadPaddingException, InvalidKeyException, 
+                                                    NoSuchAlgorithmException, NoSuchProviderException {
+        
+        byte[] msg = new byte[] { };
+        byte[] enc = symC.doFinal(data);
+        msg = byteArrConcat(msg, enc);
+        byte[] signature = sign(sigKey, digSig, msg);
+        msg = byteArrConcat(msg, intToByteArr(signature.length));
+        msg = byteArrConcat(msg, signature);
+        byte[] hash = hashF.digest(msg);
+        msg = byteArrConcat(msg, hash);
+    
+        return msg;
+
+    }
+
+
+    public static Mac prepareMacFunc(String hCheck, SecretKey macKey) 
+                                        throws NoSuchAlgorithmException, InvalidKeyException, 
+                                            NoSuchProviderException {
+
+        Mac hMac = Mac.getInstance(hCheck, "BC");
+        hMac.init(macKey);
+        return hMac;
+
+	}
+
+    public static Cipher prepareSymEnc(String alg, SecretKey key) 
+                                        throws NoSuchAlgorithmException, InvalidKeyException, 
+                                            NoSuchProviderException, NoSuchPaddingException {
+        
+        Cipher cipher = Cipher.getInstance(alg, "BC");
+		cipher.init(Cipher.ENCRYPT_MODE, key);
+        return cipher;
+
+    }
 }

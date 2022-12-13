@@ -182,6 +182,8 @@ class Box {
 			System.out.println("Could not verify signature of StreamServer");
 		}
 
+		int portRecvUDP = socket.getLocalPort();		// Server will reply on this port
+		System.out.println("port udp: " + portRecvUDP);
 		UtilsBox.closeTCPConns(socket, input, output);
 
 
@@ -200,12 +202,21 @@ class Box {
 		byteSimm = UtilsBox.hashToKey(byteSimm, Integer.parseInt(keySizeSym));
 		
 		SecretKey macKey = null;
+		MessageDigest hfun = null;
+		Mac macF = null;
 		if(!macKeySize.equals("NULL")){
 			byte[] byteKMac = Arrays.copyOfRange(DHsecret, 128, 256);
 			byteKMac = UtilsBox.hashToKey(byteSimm, Integer.parseInt(macKeySize));
 			macKey = new SecretKeySpec(byteKMac, integrity);
+			macF = UtilsBox.prepareMacFunc(integrity, macKey);
+		} else {
+			hfun = MessageDigest.getInstance(integrity, "BC");
 		}
 		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
+
+		Cipher symEnc = UtilsBox.prepareSymEnc(ciphersuite, kSimm);
+
+		kPriv = UtilsBox.readGeneralPrivateKey(digSig);
 
 		System.out.println("secret ksmim: " + UtilsBox.toHex(kSimm.getEncoded()));
 		System.out.println("secret mackey: " + UtilsBox.toHex(macKey.getEncoded()));
@@ -220,6 +231,21 @@ class Box {
 
 		System.out.println("hostPlayer: " + hostPlayer);
 		System.out.println("portPlayer: " + portPlayer);
+
+
+		/* START */
+		DatagramSocket sSendUDP = new DatagramSocket();
+		DatagramSocket sRecvUDP = new DatagramSocket(portRecvUDP);
+
+		// send movie name to server
+		byte[] startMsg = null;
+		if(!macKeySize.equals("NULL")){
+			startMsg = UtilsBox.preparePacketMac(args[0].getBytes(), symEnc, kPriv, digSig, macF);
+		} else {
+			startMsg = UtilsBox.preparePacketHash(args[0].getBytes(), symEnc, kPriv, digSig, hfun);
+		}
+		UtilsBox.sendUDP(sSendUDP, startMsg, args[1], Integer.parseInt(args[2]));
+		
 
 	}
 	

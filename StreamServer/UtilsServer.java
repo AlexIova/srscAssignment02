@@ -429,7 +429,7 @@ public class UtilsServer {
 
         String hashFunc;
         if(size == 128){
-            hashFunc = "SHA1";
+            hashFunc = "MD5";
         }
         else if(size == 256){
             hashFunc = "SHA256";
