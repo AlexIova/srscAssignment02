@@ -1,14 +1,3 @@
-/* hjBox, 22/23
- *
- * This is the implementation of a Box to receive streamed UDP packets
- * (with media segments as payloads encoding MPEG4 frames)
- * The code is inspired (in fact very similar) to the code presented,
- * available, used and discussed in Labs (Lab 2, Part I)
- *
- * You can use this material as a starting point for your Box implementation
- * in TP1, according to the TP1 requirements
- */
-
 import java.io.*;
 import java.math.BigInteger;
 import java.net.DatagramPacket;
@@ -49,9 +38,6 @@ class Box {
 
 		byte[] nonce = UtilsBox.getNonceBytes();
 
-		// System.out.println("DEBUG nonce:\t" + UtilsBox.byteArrToInt(nonce));
-
-
 		/* Variables */
 		String hashFunc = "SHA256";
 		String kMahInit = "HMac-SHA1";
@@ -66,7 +52,6 @@ class Box {
 
 		/* RSAKeys for signature*/
 		PrivateKey kPriv = UtilsBox.readRSAPrivateKey("./certificates/BoxCertRSA2048.pem");
-		// X509Certificate cert = UtilsBox.getCertificate("./certificates/BoxCert.crt");
 
 		/* Get DH parameters */
 		int sizeParamDH = 2048;
@@ -89,13 +74,11 @@ class Box {
 		// dh parameters
 		byte[] boxDHbytes = boxPair.getPublic().getEncoded();
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(boxDHbytes.length));
-		System.out.println("size dh: " + boxDHbytes.length);
 		msg = UtilsBox.byteArrConcat(msg, boxDHbytes);
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(sizeParamDH));
 
 		// certificates
 		byte[] certByte = UtilsBox.fileToByte("./certificates/allBoxCerts.crt");
-		// System.out.println("Lunghezza certificato: " + certByte.length);
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(certByte.length));
 		msg = UtilsBox.byteArrConcat(msg, certByte);
 
@@ -112,8 +95,6 @@ class Box {
 		msg = UtilsBox.byteArrConcat(msg, macSS.doFinal(msg));
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(macSS.getMacLength()));
 
-		System.out.println("size of msg: " + msg.length);
-
 		/* Send message */
 		UtilsBox.sendTCP(output, msg);
 
@@ -128,9 +109,7 @@ class Box {
 
 		/* Get kmac */
 		int sizeKmac = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, reply.length-4, reply.length));
-		// System.out.println("DEBUG sizekmac: " + sizeKmac);
 		byte[] buffKmacRCV = Arrays.copyOfRange(reply, reply.length-4-sizeKmac, reply.length-4);	// kmac received
-		// System.out.println("DEBUG buffKmacRCV: " + buffKmacRCV.length);
 		byte[] buffZRcv = Arrays.copyOfRange(reply, 0, reply.length-4-sizeKmac);	// Z of message received
 		byte[] buffKmacOWN = macBox.doFinal(buffZRcv);		// Z kmac own calculated
 		if( !MessageDigest.isEqual(buffKmacRCV, buffKmacOWN) ){
@@ -141,8 +120,8 @@ class Box {
 		// Get nonce
 		int sizeNonceReply = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, 0, 4));
 		byte[] nonceReply = Arrays.copyOfRange(reply, 4, 4 + sizeNonceReply);
-		if (Arrays.equals(nonce, nonceReply)){
-			System.out.println("Nonce corresponds");
+		if (!Arrays.equals(nonce, nonceReply)){
+			System.out.println("Nonce does not correspond");
 		}
 		i += 4 + sizeNonceReply;
 
@@ -151,8 +130,6 @@ class Box {
 		i += 4;
 		String cs = UtilsBox.byteToString(Arrays.copyOfRange(reply, i, i+sizeCipherSuite));
 		i += sizeCipherSuite;
-
-		System.out.println("cs to use: " + cs);
 
 		// Get DH parameters
 		int lenPubDHkey = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
@@ -166,7 +143,7 @@ class Box {
         boxKpairGen.initialize(dhServParam);
         KeyPair servPair = boxKpairGen.generateKeyPair();
 		boxKeyAgree.doPhase(servDHkeyPub, true);
-		System.out.println(UtilsBox.toHex(boxKeyAgree.generateSecret()));
+		// System.out.println(UtilsBox.toHex(boxKeyAgree.generateSecret()));
 
 		// Get certificates
 		int sizeCerts = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
@@ -174,7 +151,6 @@ class Box {
 		X509Certificate certStreamServer = UtilsBox.getCertificateFromBytes(Arrays.copyOfRange(reply, i+4, sizeCerts+i+4));
 		if(!UtilsBox.verifyCert(certStreamServer, rootCert)){
 			System.out.println("ISSUE verifying certificate");
-			System.exit(1);
 		}
 
 		/* TODO: move this part up, should be done before, I guess... */
@@ -206,8 +182,33 @@ class Box {
 			System.out.println("Could not verify signature of StreamServer");
 		}
 
-
 		UtilsBox.closeTCPConns(socket, input, output);
+
+
+		/********* BEGIN UDP CONNECTION *********/
+
+		System.out.println("digsig: " + digSig);
+		System.out.println("ecscpec: " + ecspec);
+		System.out.println("ciphersuites: " + ciphersuite);
+		System.out.println("keySizeSym " + keySizeSym);
+		System.out.println("integrity " + integrity);
+		System.out.println("macKeySize " + macKeySize);
+
+		byte[] DHsecret = boxKeyAgree.generateSecret();
+		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
+		
+		byteSimm = UtilsBox.hashToKey(byteSimm, Integer.parseInt(keySizeSym));
+		
+		SecretKey macKey = null;
+		if(!macKeySize.equals("NULL")){
+			byte[] byteKMac = Arrays.copyOfRange(DHsecret, 128, 256);
+			byteKMac = UtilsBox.hashToKey(byteSimm, Integer.parseInt(macKeySize));
+			macKey = new SecretKeySpec(byteKMac, integrity);
+		}
+		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
+
+		System.out.println("secret ksmim: \n" + UtilsBox.toHex(kSimm.getEncoded()));
+		System.out.println("secret mackey: \n" + UtilsBox.toHex(macKey.getEncoded()));
 
 	}
 	
