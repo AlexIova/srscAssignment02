@@ -200,7 +200,7 @@ class Box {
 
 		byte[] DHsecret = boxKeyAgree.generateSecret();
 		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
-		IvParameterSpec iv =  new IvParameterSpec(Arrays.copyOfRange(DHsecret, 0, 10));
+		IvParameterSpec iv =  new IvParameterSpec(Arrays.copyOfRange(DHsecret, DHsecret.length-10, DHsecret.length));
 		
 		byteSimm = UtilsBox.hashToKey(byteSimm, Integer.parseInt(keySizeSym));
 		
@@ -223,7 +223,7 @@ class Box {
 		kPriv = UtilsBox.readGeneralPrivateKey(digSig);
 
 		System.out.println("secret ksmim: " + UtilsBox.toHex(kSimm.getEncoded()));
-		System.out.println("secret mackey: " + UtilsBox.toHex(macKey.getEncoded()));
+		// System.out.println("secret mackey: " + UtilsBox.toHex(macKey.getEncoded()));
 
 		/********* BEGIN UDP CONNECTION *********/
 

@@ -11,7 +11,7 @@ Mackey-size: NULL
 <CS2>
 digital-signature: SHA256withDSA
 ecspec: NULL
-ciphersuite: AES/GCM/NoPadding 		
+ciphersuite: AES/CCM/NoPadding		
 key-size-sym: 256
 integrity: HMAC-SHA256 				
 Mackey-size: 256	
@@ -19,21 +19,21 @@ Mackey-size: 256
 
 
 <CS3>
-digital-signature: ECDSA
-ecspec: secp256r1
-ciphersuite: AES/CCM/NoPadding		
-key-size-sym: 128	
-integrity: HMAC-SHA256			
-Mackey-size: 256	
+digital-signature: SHA256withDSA
+ecspec: NULL
+ciphersuite: AES/CTR/NoPadding 	
+key-size-sym: 256			
+integrity: HMAC-SHA256				
+Mackey-size: 256
 </CS3>
 
 
 <CS4>
 digital-signature: SHA256withRSA
 ecspec: NULL
-ciphersuite: RC6/GCM/NoPadding 
+ciphersuite: RC6/CCM/NoPadding
 key-size-sym: 256			
-integrity: HMAC-SHA256			
+integrity: HMAC-SHA256				
 Mackey-size: 256
 </CS4>
 

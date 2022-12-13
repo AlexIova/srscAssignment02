@@ -167,7 +167,7 @@ public class UtilsBox {
             type = "RSA";
         } 
         else if (alg.equals("SHA256withDSA")){
-            path = "./certificates/BoxDSA2048.pem";
+            path = "./certificates/BoxCertDSA2048.pem";
             type = "DSA";
         } 
         else if (alg.equals("ECDSA")){

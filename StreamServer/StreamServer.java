@@ -187,7 +187,7 @@ class StreamServer {
 
 		byte[] DHsecret = serverKeyAgree.generateSecret();
 		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
-		IvParameterSpec iv =  new IvParameterSpec(Arrays.copyOfRange(DHsecret, 0, 10));
+		IvParameterSpec iv =  new IvParameterSpec(Arrays.copyOfRange(DHsecret, DHsecret.length-10, DHsecret.length));
 		
 		byteSimm = UtilsServer.hashToKey(byteSimm, Integer.parseInt(keySizeSym));
 
@@ -206,7 +206,7 @@ class StreamServer {
 		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
 
 		System.out.println("secret ksmim: " + UtilsServer.toHex(kSimm.getEncoded()));
-		System.out.println("secret mackey: " + UtilsServer.toHex(macKey.getEncoded()));
+		// System.out.println("secret mackey: " + UtilsServer.toHex(macKey.getEncoded()));
 
 		Cipher symEnc = UtilsServer.prepareSymEnc(ciphersuite, kSimm, iv);
 		Cipher symDec = UtilsServer.prepareSymDec(ciphersuite, kSimm, iv);
