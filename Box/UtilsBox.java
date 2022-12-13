@@ -411,8 +411,8 @@ public class UtilsBox {
         byte[] enc = symC.doFinal(data);
         msg = byteArrConcat(msg, enc);
         byte[] signature = sign(sigKey, digSig, msg);
-        msg = byteArrConcat(msg, intToByteArr(signature.length));
         msg = byteArrConcat(msg, signature);
+        msg = byteArrConcat(msg, intToByteArr(signature.length));
         byte[] hash = hashF.digest(msg);
         msg = byteArrConcat(msg, hash);
     
@@ -451,5 +451,87 @@ public class UtilsBox {
         return cipher;
 
     }
+
+
+    public static byte[] verifyHASHAndDecrypt(byte[] data, Cipher symC, PublicKey sigKey, String digSig, MessageDigest hashF)
+                                                throws SignatureException, IllegalBlockSizeException,
+                                                    InvalidKeyException, BadPaddingException,
+                                                    NoSuchAlgorithmException {
+        
+        int j = data.length;
+        byte[] y = Arrays.copyOfRange(data, 0, j-hashF.getDigestLength());
+        byte[] digest = hashF.digest(y);
+        byte[] hash = Arrays.copyOfRange(data, j-hashF.getDigestLength(), j);
+        if(!MessageDigest.isEqual(hash, digest)){
+            System.out.println("Problem verifying hash");
+            return null;
+        }
+        j -= hashF.getDigestLength();
+        int sizeSig = byteArrToInt(Arrays.copyOfRange(data, j-4, j));
+        j -= 4;
+        byte[] signature = Arrays.copyOfRange(data, j-sizeSig, j);
+        j -= sizeSig;
+        byte[] encData = Arrays.copyOfRange(data, 0, j);
+        if(!verifySig(digSig, sigKey, encData, signature)){
+            System.out.println("Problem verifying signature");
+            return null;
+        }
+        byte[] decData = symC.doFinal(encData);
+        
+        return decData;
+
+    }
+
+    public static byte[] verifyMACAndDecrypt(byte[] data, Cipher symC, PublicKey sigKey, String digSig, Mac macF)
+                                                throws SignatureException, IllegalBlockSizeException,
+                                                    InvalidKeyException, BadPaddingException,
+                                                    NoSuchAlgorithmException {
+
+        int j = data.length;
+        byte[] y = Arrays.copyOfRange(data, 0, j-macF.getMacLength());
+        byte[] integrity = macF.doFinal(y);
+        byte[] hmac = Arrays.copyOfRange(data, j-macF.getMacLength(), j);
+        if(!Arrays.equals(hmac, integrity)){
+            System.out.println("Problem verifying hmac");
+            return null;
+        }
+        j -= macF.getMacLength();
+        int sizeSig = byteArrToInt(Arrays.copyOfRange(data, j-4, j));
+        j -= 4;
+        byte[] signature = Arrays.copyOfRange(data, j-sizeSig, j);
+        j -= sizeSig;
+        byte[] encData = Arrays.copyOfRange(data, 0, j);
+        if(!verifySig(digSig, sigKey, encData, signature)){
+            System.out.println("Problem verifying signature");
+            return null;
+        }
+        byte[] decData = symC.doFinal(encData);
+        
+        return decData;
+
+    }
+
+
+    public static Boolean isFinished(DatagramPacket p){
+
+		byte[]  nullByte = new byte[] { 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+			};
+
+		byte[] data = Arrays.copyOfRange(p.getData(), 0, p.getLength());
+
+		return Arrays.equals(data, nullByte);
+	}
 
 }

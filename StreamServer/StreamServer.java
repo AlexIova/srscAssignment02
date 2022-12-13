@@ -169,6 +169,9 @@ class StreamServer {
 
 		UtilsServer.sendTCP(output, msg);
 
+		String hostname = socket.getInetAddress().getHostName();
+		int port = socket.getPort();
+
 		serverSocket.close();
 		UtilsServer.closeTCPConns(socket, input, output);
 
@@ -229,6 +232,41 @@ class StreamServer {
 		}
 		String movie = new String(movieB);
 		System.out.println("movie: " + movie);
+
+		DataInputStream g = new DataInputStream( new FileInputStream(movie) );
+		
+		int size = 0;
+		int count = 0;
+		long time = 0;
+		long q0 = 0;
+		byte[] buff = new byte[BUFF_SIZE];
+		byte[] buffSend = null;
+		long t0 = System.nanoTime(); //ref time for real-time stream
+
+		while (g.available() > 0) {
+			size = g.readShort();
+			time = g.readLong();
+			if ( count == 0 ) q0 = time;
+			count += 1;
+
+			g.readFully(buff, 0, size);
+
+			if(macKeySize.equals("NULL")){
+				buffSend = UtilsServer.preparePacketHash(buff, symEnc, kPriv, digSig, hfun);
+			}
+			else {
+				buffSend = UtilsServer.preparePacketMac(buff, symEnc, kPriv, digSig, macF);
+			}
+			
+			UtilsServer.sendUDP(sSendUDP, buffSend, hostname, port);
+
+			long t = System.nanoTime();
+			Thread.sleep( Math.max(0, ((time-q0)-(t-t0))/1000000));
+
+			System.out.print(".");
+
+		}
+		UtilsServer.sendNull(sSendUDP, hostname, port);
 
 	}
 

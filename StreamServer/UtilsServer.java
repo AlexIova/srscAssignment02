@@ -2,6 +2,7 @@ import java.io.*;
 import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.Charset;
@@ -461,8 +462,8 @@ public class UtilsServer {
         byte[] enc = symC.doFinal(data);
         msg = byteArrConcat(msg, enc);
         byte[] signature = sign(sigKey, digSig, msg);
-        msg = byteArrConcat(msg, intToByteArr(signature.length));
         msg = byteArrConcat(msg, signature);
+        msg = byteArrConcat(msg, intToByteArr(signature.length));
         byte[] mac = macF.doFinal(msg);
         msg = byteArrConcat(msg, mac);
     
@@ -480,8 +481,8 @@ public class UtilsServer {
         byte[] enc = symC.doFinal(data);
         msg = byteArrConcat(msg, enc);
         byte[] signature = sign(sigKey, digSig, msg);
-        msg = byteArrConcat(msg, intToByteArr(signature.length));
         msg = byteArrConcat(msg, signature);
+        msg = byteArrConcat(msg, intToByteArr(signature.length));
         byte[] hash = hashF.digest(msg);
         msg = byteArrConcat(msg, hash);
     
@@ -576,7 +577,6 @@ public class UtilsServer {
             return null;
         }
         j -= macF.getMacLength();
-        System.out.println("j: " + j);
         int sizeSig = byteArrToInt(Arrays.copyOfRange(data, j-4, j));
         j -= 4;
         byte[] signature = Arrays.copyOfRange(data, j-sizeSig, j);
@@ -592,5 +592,30 @@ public class UtilsServer {
 
     }
     
+    public static void sendUDP(DatagramSocket sock, byte[] msg, String hostname, int port) throws IOException{
+        
+        InetSocketAddress addr = new InetSocketAddress( hostname, port);
+        sock.send(new DatagramPacket(msg, msg.length, addr));
+
+    }
+
+    public static void sendNull(DatagramSocket sock, String hostname, int port) throws IOException{
+		byte[]  nullByte = new byte[] { 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+			};
+
+		sendUDP(sock, nullByte, hostname, port);
+	}
 
 }

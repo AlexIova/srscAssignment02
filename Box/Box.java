@@ -32,6 +32,8 @@ class Box {
 			System.exit(-1);
 		}
 
+		int BUFF_SIZE = 8192;
+
 		Socket socket = UtilsBox.createTCPSock(args[1], Integer.parseInt(args[2]));
 		ObjectOutputStream output = UtilsBox.outTCPStream(socket);
 		ObjectInputStream input = UtilsBox.inTCPStream(socket);
@@ -216,6 +218,7 @@ class Box {
 		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
 
 		Cipher symEnc = UtilsBox.prepareSymEnc(ciphersuite, kSimm, iv);
+		Cipher symDec = UtilsBox.prepareSymDec(ciphersuite, kSimm, iv);
 
 		kPriv = UtilsBox.readGeneralPrivateKey(digSig);
 
@@ -233,6 +236,10 @@ class Box {
 		System.out.println("hostPlayer: " + hostPlayer);
 		System.out.println("portPlayer: " + portPlayer);
 
+		byte[] buffer = new byte[BUFF_SIZE * 3];
+		DatagramPacket inPacket = new DatagramPacket(buffer, buffer.length);
+		byte[] data = null;
+		byte[] buffDec = null;
 
 		/* START */
 		DatagramSocket sSendUDP = new DatagramSocket();
@@ -247,6 +254,24 @@ class Box {
 		}
 		UtilsBox.sendUDP(sSendUDP, startMsg, args[1], Integer.parseInt(args[2]));
 		
+		while(true){
+
+			if(UtilsBox.isFinished(inPacket)){
+				System.out.println("RILEVATA FINE");
+				break;
+			}
+			sRecvUDP.receive(inPacket);
+			data = Arrays.copyOfRange(inPacket.getData(), 0, inPacket.getLength());
+			if(macKeySize.equals("NULL")){
+				buffDec = UtilsBox.verifyHASHAndDecrypt(data, symDec, kPubBox, digSig, hfun);
+			}
+			else {
+				buffDec = UtilsBox.verifyMACAndDecrypt(data, symDec, kPubBox, digSig, macF);
+			}
+			UtilsBox.sendUDP(sSendUDP, buffDec, hostPlayer, portPlayer);
+			System.out.print(".");
+
+		}
 
 	}
 	
