@@ -151,7 +151,7 @@ public class UtilsServer {
         Signature signature = Signature.getInstance(algorithm, "BC");
         signature.initSign(kPriv);
         signature.update(message);
-        byte[]  sigBytes = signature.sign();
+        byte[] sigBytes = signature.sign();
 
         return sigBytes;
     }
@@ -340,6 +340,93 @@ public class UtilsServer {
         }
 
         return null;
+
+    }
+
+
+    public static Properties parserDictionary(String CS, String pathFile) 
+                                        throws FileNotFoundException, IOException{
+
+		Properties properties = new Properties();
+		String start = "<" + CS + ">";
+		String finish = "</" + CS + ">";
+        BufferedReader br = new BufferedReader(new FileReader(pathFile));
+        StringBuilder sb = new StringBuilder();
+        String currentLine;
+        // find beginning
+        while ((currentLine = br.readLine()) != null && !(currentLine.contains(start))) {
+            ;
+        }
+        // find end
+        while ((currentLine = br.readLine()) != null && !(currentLine.contains(finish))) {
+            if (currentLine.indexOf("//") != -1)	// remove comments
+                currentLine = currentLine.substring(0, currentLine.indexOf("//"));
+            sb.append(currentLine.replaceAll("\\s+",""));		// take out whitespace
+            sb.append("\n");
+        }
+        if(sb.length() == 0){
+            System.out.println("Can't find CS in dictionary file");
+            System.exit(-1);
+        }
+        properties.load(new ByteArrayInputStream( sb.toString().getBytes() ));
+        br.close();
+
+		return properties;
+
+	}
+
+    public static String chooseCertificate(String alg){
+        System.out.println("digsig: " + alg);
+        if(alg.equals("SHA256withRSA")){
+            return "./certificates/ServerCertRSA2048.crt";
+        } 
+        else if (alg.equals("SHA256withDSA")){
+            return "./certificates/ServerCertDSA2048.crt";
+        } 
+        else if (alg.equals("ECDSA")){
+            return "./certificates/ServerECDSAsecp256r1.crt";
+        }
+        else {
+            return null;
+        }
+
+    }
+
+    // TODO: fai funzionare con EC
+    public static PrivateKey readGeneralPrivateKey(String alg) 
+                                throws NoSuchAlgorithmException, InvalidKeySpecException, 
+                                        IOException, NoSuchProviderException {
+
+        String path;
+        String type;
+        if(alg.equals("SHA256withRSA")){
+            path =  "./certificates/ServerCertRSA2048.pem";
+            type = "RSA";
+        } 
+        else if (alg.equals("SHA256withDSA")){
+            path = "./certificates/ServerCertDSA2048.pem";
+            type = "DSA";
+        } 
+        else if (alg.equals("ECDSA")){
+            path = "./certificates/ServerECDSAsecp256r1.pem";
+            type = "EC";
+        }
+        else {
+            return null;
+        }
+        String keyString = new String(Files.readAllBytes(Paths.get(path)), Charset.defaultCharset());
+
+        String privateKeyPEM = keyString
+            .replace("-----BEGIN PRIVATE KEY-----", "")
+            .replaceAll(System.lineSeparator(), "")
+            .replace("-----END PRIVATE KEY-----", "");
+
+        System.out.println("keystring:\n" + privateKeyPEM);
+        byte[] encoded = Base64.getDecoder().decode(privateKeyPEM);
+        KeyFactory kf = KeyFactory.getInstance(type, "BC");
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
+        PrivateKey key = kf.generatePrivate(keySpec);
+        return key;    
 
     }
 

@@ -291,4 +291,35 @@ public class UtilsBox {
         return new String(bytes);
     }
 
+    public static Properties parserDictionary(String CS, String pathFile) 
+                                        throws FileNotFoundException, IOException{
+
+		Properties properties = new Properties();
+		String start = "<" + CS + ">";
+		String finish = "</" + CS + ">";
+        BufferedReader br = new BufferedReader(new FileReader(pathFile));
+        StringBuilder sb = new StringBuilder();
+        String currentLine;
+        // find beginning
+        while ((currentLine = br.readLine()) != null && !(currentLine.contains(start))) {
+            ;
+        }
+        // find end
+        while ((currentLine = br.readLine()) != null && !(currentLine.contains(finish))) {
+            if (currentLine.indexOf("//") != -1)	// remove comments
+                currentLine = currentLine.substring(0, currentLine.indexOf("//"));
+            sb.append(currentLine.replaceAll("\\s+",""));		// take out whitespace
+            sb.append("\n");
+        }
+        if(sb.length() == 0){
+            System.out.println("Can't find CS in dictionary file");
+            System.exit(-1);
+        }
+        properties.load(new ByteArrayInputStream( sb.toString().getBytes() ));
+        br.close();
+
+		return properties;
+
+	}
+
 }

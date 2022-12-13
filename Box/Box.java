@@ -152,11 +152,13 @@ class Box {
 		String cs = UtilsBox.byteToString(Arrays.copyOfRange(reply, i, i+sizeCipherSuite));
 		i += sizeCipherSuite;
 
+		System.out.println("cs to use: " + cs);
 
 		// Get DH parameters
 		int lenPubDHkey = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
-		byte[] pDHserv = Arrays.copyOfRange(reply, i+4, i+4+lenPubDHkey);
-		i += 4 + lenPubDHkey;
+		i += 4;
+		byte[] pDHserv = Arrays.copyOfRange(reply, i, i+lenPubDHkey);
+		i += lenPubDHkey;
 		PublicKey servDHkeyPub = UtilsBox.publicDHkeyFromBytes(pDHserv);
 		/* Prepare DH key */
 		DHParameterSpec dhServParam = ( (javax.crypto.interfaces.DHPublicKey) servDHkeyPub).getParams();
@@ -185,13 +187,22 @@ class Box {
 			System.out.println("Could not verify hash of StreamServer");
 		}
 		
+		/* Now get algs */
+		Properties properties = UtilsBox.parserDictionary(cs, "./configs/dictionaryCipherSuites");
+		String digSig = properties.getProperty("digital-signature");
+		String ecspec = properties.getProperty("ecspec");
+		String ciphersuite = properties.getProperty("ciphersuite");
+		String keySizeSym = properties.getProperty("key-size-sym");
+		String integrity = properties.getProperty("integrity");
+		String macKeySize = properties.getProperty("Mackey-size");
+
 		// Verify signature
 		int sigSize = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, j-4, j));
 		j -= 4;
 		byte[] sigBox = Arrays.copyOfRange(reply, j-sigSize, j);
 		j -= sigSize;
 		PublicKey kPubBox = certStreamServer.getPublicKey();
-		if(!UtilsBox.verifySig(initSig, kPubBox, Arrays.copyOfRange(reply, 0, j), sigBox)){
+		if(!UtilsBox.verifySig(digSig, kPubBox, Arrays.copyOfRange(reply, 0, j), sigBox)){
 			System.out.println("Could not verify signature of StreamServer");
 		}
 

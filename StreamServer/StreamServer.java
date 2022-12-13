@@ -138,14 +138,24 @@ class StreamServer {
 		j -= 4;
 		byte[] sigBox = Arrays.copyOfRange(reply, j-sigSize, j);
 		j -= sigSize;
-		PublicKey kPubBox = UtilsServer.getSpecificCertificate(initSig, certsBox).getPublicKey();
+		PublicKey kPubBox = UtilsServer.getSpecificCertificate("RSA", certsBox).getPublicKey();
 		if(!UtilsServer.verifySig(initSig, kPubBox, Arrays.copyOfRange(reply, 0, j), sigBox)){
 			System.out.println("Could not verify signature of Box");
 		}
 
 
+		// Get algs
+        Properties properties = UtilsServer.parserDictionary(cs, "./configs/dictionaryCipherSuites");
+		String digSig = properties.getProperty("digital-signature");
+		String ecspec = properties.getProperty("ecspec");
+		String ciphersuite = properties.getProperty("ciphersuite");
+		String keySizeSym = properties.getProperty("key-size-sym");
+		String integrity = properties.getProperty("integrity");
+		String macKeySize = properties.getProperty("Mackey-size");
+
 
 		/*--------------------------- Build message ---------------------------*/
+
 		byte[] msg = new byte[] { };
 
 		// send nonce
@@ -153,21 +163,24 @@ class StreamServer {
 		msg = UtilsServer.byteArrConcat(msg, nonce);
 
 		/* Decide ciphersuite */
+		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(cs.getBytes().length));
+		msg = UtilsServer.byteArrConcat(msg, cs.getBytes());
 
 		// Send DH parameters
 		byte[] servDHbytes = servPair.getPublic().getEncoded();
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(servDHbytes.length));
 		msg = UtilsServer.byteArrConcat(msg, servDHbytes);
+		System.out.println("lenDH: " + servDHbytes.length);
 
 		// Send certificate
-		byte[] certByte = UtilsServer.fileToByte("./certificates/StreamServerCert.crt");
+		byte[] certByte = UtilsServer.fileToByte(UtilsServer.chooseCertificate(digSig));
 		System.out.println("Lunghezza: " + certByte.length);
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(certByte.length));
 		msg = UtilsServer.byteArrConcat(msg, certByte);
 
 		// Send signature
-		PrivateKey kPriv = UtilsServer.readRSAPrivateKey("./certificates/StreamServerCert.pem");
-		byte[] sig = UtilsServer.sign(kPriv, initSig, msg);
+		PrivateKey kPriv = UtilsServer.readGeneralPrivateKey(digSig);
+		byte[] sig = UtilsServer.sign(kPriv, digSig, msg);
 		msg = UtilsServer.byteArrConcat(msg, sig);
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(sig.length));
 
