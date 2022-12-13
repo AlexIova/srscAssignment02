@@ -194,8 +194,8 @@ class StreamServer {
 
 		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
 
-		System.out.println("secret ksmim: \n" + UtilsServer.toHex(kSimm.getEncoded()));
-		System.out.println("secret mackey: \n" + UtilsServer.toHex(macKey.getEncoded()));
+		System.out.println("secret ksmim: " + UtilsServer.toHex(kSimm.getEncoded()));
+		System.out.println("secret mackey: " + UtilsServer.toHex(macKey.getEncoded()));
 
 	}
 

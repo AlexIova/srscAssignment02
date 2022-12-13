@@ -185,7 +185,7 @@ class Box {
 		UtilsBox.closeTCPConns(socket, input, output);
 
 
-		/********* BEGIN UDP CONNECTION *********/
+		/********* GET CS DATA *********/
 
 		System.out.println("digsig: " + digSig);
 		System.out.println("ecscpec: " + ecspec);
@@ -207,8 +207,19 @@ class Box {
 		}
 		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
 
-		System.out.println("secret ksmim: \n" + UtilsBox.toHex(kSimm.getEncoded()));
-		System.out.println("secret mackey: \n" + UtilsBox.toHex(macKey.getEncoded()));
+		System.out.println("secret ksmim: " + UtilsBox.toHex(kSimm.getEncoded()));
+		System.out.println("secret mackey: " + UtilsBox.toHex(macKey.getEncoded()));
+
+		/********* BEGIN UDP CONNECTION *********/
+
+		Properties propAddr = new Properties();
+		propAddr.load(new FileInputStream(new File("./configs/address.properties")));
+
+		String hostPlayer = propAddr.getProperty("host");
+		int portPlayer = Integer.parseInt(propAddr.getProperty("port"));
+
+		System.out.println("hostPlayer: " + hostPlayer);
+		System.out.println("portPlayer: " + portPlayer);
 
 	}
 	
