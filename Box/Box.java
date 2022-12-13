@@ -65,8 +65,8 @@ class Box {
 		Mac macBox = UtilsBox.prepareMacFunc(kMahInit, mackeyBox);
 
 		/* RSAKeys for signature*/
-		PrivateKey kPriv = UtilsBox.readRSAPrivateKey("./certificates/BoxCert.pem");
-		X509Certificate cert = UtilsBox.getCertificate("./certificates/BoxCert.crt");
+		PrivateKey kPriv = UtilsBox.readRSAPrivateKey("./certificates/BoxCertRSA2048.pem");
+		// X509Certificate cert = UtilsBox.getCertificate("./certificates/BoxCert.crt");
 
 		/* Get DH parameters */
 		int sizeParamDH = 2048;
@@ -81,6 +81,11 @@ class Box {
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(nonce.length));
 		msg = UtilsBox.byteArrConcat(msg, nonce);
 
+		// ciphersuites
+		byte[] csBytes = UtilsBox.getBytesCS("./configs/preferredCipherSuites");
+		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(csBytes.length));
+		msg = UtilsBox.byteArrConcat(msg, csBytes);
+
 		// dh parameters
 		byte[] boxDHbytes = boxPair.getPublic().getEncoded();
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(boxDHbytes.length));
@@ -88,8 +93,8 @@ class Box {
 		msg = UtilsBox.byteArrConcat(msg, boxDHbytes);
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(sizeParamDH));
 
-		// certificate
-		byte[] certByte = UtilsBox.fileToByte("./certificates/BoxCertRSA2048.crt");
+		// certificates
+		byte[] certByte = UtilsBox.fileToByte("./certificates/allBoxCerts.crt");
 		// System.out.println("Lunghezza certificato: " + certByte.length);
 		msg = UtilsBox.byteArrConcat(msg, UtilsBox.intToByteArr(certByte.length));
 		msg = UtilsBox.byteArrConcat(msg, certByte);
@@ -140,6 +145,12 @@ class Box {
 			System.out.println("Nonce corresponds");
 		}
 		i += 4 + sizeNonceReply;
+
+		// get CS to use
+		int sizeCipherSuite = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
+		i += 4;
+		String cs = UtilsBox.byteToString(Arrays.copyOfRange(reply, i, i+sizeCipherSuite));
+		i += sizeCipherSuite;
 
 
 		// Get DH parameters

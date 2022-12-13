@@ -274,4 +274,21 @@ public class UtilsBox {
         return hfun.digest(buff);
     }
 
+    private static String fileToString(String path) throws IOException{
+
+        return new String(Files.readAllBytes(Paths.get(path)), Charset.defaultCharset());
+    
+    }
+
+    public static byte[] getBytesCS(String path) throws IOException{
+
+        String cs = fileToString(path);
+        return cs.getBytes();
+
+    }
+
+    public static String byteToString(byte[] bytes){
+        return new String(bytes);
+    }
+
 }

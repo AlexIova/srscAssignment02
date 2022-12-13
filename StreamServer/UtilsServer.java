@@ -9,6 +9,8 @@ import java.nio.file.*;
 import java.security.*;
 import javax.crypto.*;
 import javax.crypto.spec.*;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Properties;
@@ -270,6 +272,72 @@ public class UtilsServer {
         MessageDigest hfun = MessageDigest.getInstance(hCheck, "BC");
 
         return hfun.digest(buff);
+    }
+
+    private static String fileToString(String path) throws IOException{
+
+        return new String(Files.readAllBytes(Paths.get(path)), Charset.defaultCharset());
+    
+    }
+
+    public static byte[] getBytesCS(String path) throws IOException{
+
+        String cs = fileToString(path);
+        return cs.getBytes();
+
+    }
+
+    public static String byteToString(byte[] bytes){
+        return new String(bytes);
+    }
+
+    /* choose CS to use */
+    public static String chooseCS(byte[] recv, String path) throws IOException{
+        
+        String[] serverCS = fileToString(path).split(",");
+        String[] boxCS = byteToString(recv).split(",");
+
+        for(String sBox: boxCS){
+            for(String sServer : serverCS){
+                if(sBox.equals(sServer))
+                    return sServer;
+            }
+        }
+
+        return null;
+        
+    }
+
+    public static X509Certificate[] getArrCertificate(byte[] bytes) throws CertificateException{
+        
+        String chain = new String(bytes);
+        String[] arrCerts = chain.split("-----END CERTIFICATE-----");
+        for(int i = 0; i < arrCerts.length-1; i++){
+            arrCerts[i] += "-----END CERTIFICATE-----";
+        }
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        ArrayList<X509Certificate> certs = new ArrayList<X509Certificate>();
+        X509Certificate tmpCert = null;
+        for(int i = 0; i < arrCerts.length; i++){
+            tmpCert = (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(arrCerts[i].getBytes()));
+            certs.add(tmpCert);
+        }
+
+        return (X509Certificate[]) certs.toArray();
+
+    }
+
+    public static X509Certificate getSpecificCertificate(String alg, X509Certificate[] certArr){
+
+        for(X509Certificate cert : certArr){
+            System.out.println("algo in cert: " + cert.getPublicKey().getAlgorithm());
+            if(cert.getPublicKey().getAlgorithm().equals(alg)){
+                return cert;
+            }
+        }
+
+        return null;
+
     }
 
 }

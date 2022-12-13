@@ -65,7 +65,7 @@ class StreamServer {
 		/*--------------------------- Receive message ---------------------------*/
 		byte[] reply = (byte[]) UtilsServer.recvTCP(input);
 
-		int i = 0;		// left pointer to know how much read from reply
+		int i = 0;					// left pointer to know how much read from reply
 		int j = reply.length; 		// right pointer to know how much read from reply
 		
 		// Verify kmac
@@ -82,7 +82,13 @@ class StreamServer {
 		int sizeNonce = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, 0, 4));
 		byte[] nonce = Arrays.copyOfRange(reply, 4, 4+sizeNonce);
 		i += (4 + sizeNonce);
+		System.exit(1);
 
+		// get ciphersuites
+		int sizeCS = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
+		i += 4;
+		String cs = UtilsServer.chooseCS(Arrays.copyOfRange(reply, i, i+sizeCS), "./configs/preferredCipherSuites");
+		System.out.println("Ciphersuite chosen: " + cs);
 
 		// Get DH parameters
 		int lenPubDHkey = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
@@ -106,10 +112,12 @@ class StreamServer {
 		// Get certificates
 		int sizeCerts = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
 		X509Certificate rootCert = UtilsServer.getCertificate("./certificates/RootCA.crt");
-		X509Certificate certBox = UtilsServer.getCertificateFromBytes(Arrays.copyOfRange(reply, i+4, sizeCerts+i+4));
-		if(!UtilsServer.verifyCert(certBox, rootCert)){
-			System.out.println("ISSUE verifying certificate");
-			System.exit(1);
+		X509Certificate[] certsBox = UtilsServer.getArrCertificate(Arrays.copyOfRange(reply, i+4, sizeCerts+i+4));
+		for (X509Certificate cert : certsBox){			// verify all certs
+			if(!UtilsServer.verifyCert(cert, rootCert)){
+				System.out.println("ISSUE verifying certificate");
+				System.exit(1);
+			}
 		}
 		i += (4 + sizeCerts);
 
@@ -130,7 +138,7 @@ class StreamServer {
 		j -= 4;
 		byte[] sigBox = Arrays.copyOfRange(reply, j-sigSize, j);
 		j -= sigSize;
-		PublicKey kPubBox = certBox.getPublicKey();
+		PublicKey kPubBox = UtilsServer.getSpecificCertificate(initSig, certsBox).getPublicKey();
 		if(!UtilsServer.verifySig(initSig, kPubBox, Arrays.copyOfRange(reply, 0, j), sigBox)){
 			System.out.println("Could not verify signature of Box");
 		}
@@ -139,10 +147,12 @@ class StreamServer {
 
 		/*--------------------------- Build message ---------------------------*/
 		byte[] msg = new byte[] { };
+
 		// send nonce
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(nonce.length));
 		msg = UtilsServer.byteArrConcat(msg, nonce);
 
+		/* Decide ciphersuite */
 
 		// Send DH parameters
 		byte[] servDHbytes = servPair.getPublic().getEncoded();
