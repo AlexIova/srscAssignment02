@@ -8,6 +8,7 @@ openssl x509 -req -days 1000 -in ServerCertRSA2048.csr -CA RootCA.crt -CAkey Roo
 # SHA256withDSA  
 openssl dsaparam -out Serverdsaparam2048.pem 2048
 openssl gendsa -out ServerCertDSA2048.pem Serverdsaparam2048.pem
+openssl req -new -key ServerCertDSA2048.pem -out ServerCertDSA2048.csr  
 openssl x509 -req -days 1000 -in ServerCertDSA2048.csr -CA RootCA.crt -CAkey RootCA.pem -CAcreateserial -out ServerCertDSA2048.crt
 
 # ECDSA, ecspec: secp256r1
