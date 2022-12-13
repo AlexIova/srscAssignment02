@@ -12,7 +12,9 @@ openssl req -new -key ServerCertDSA2048.pem -out ServerCertDSA2048.csr
 openssl x509 -req -days 1000 -in ServerCertDSA2048.csr -CA RootCA.crt -CAkey RootCA.pem -CAcreateserial -out ServerCertDSA2048.crt
 
 # ECDSA, ecspec: secp256r1
-openssl ecparam -genkey -name prime256v1 -out ServerECDSAsecp256r1.pem
+openssl ecparam -genkey -name prime256v1 -noout -out tmpECDSA.pem
+openssl pkey -in tmpECDSA.pem -out ServerECDSAsecp256r1.pem
+rm tmpECDSA.pem
 openssl req -new -key ServerECDSAsecp256r1.pem -out ServerECDSAsecp256r1.csr  
 openssl x509 -req -days 1000 -in ServerECDSAsecp256r1.csr -CA RootCA.crt -CAkey RootCA.pem -CAcreateserial -out ServerECDSAsecp256r1.crt
 
