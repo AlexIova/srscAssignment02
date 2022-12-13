@@ -1,26 +1,13 @@
 import java.io.*;
-import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.MulticastSocket;
 import java.net.Socket;
-import java.net.InetSocketAddress;
-import java.net.InetAddress;
-import java.net.SocketAddress;
 import java.util.Arrays;
-import java.util.Base64;
-import java.util.ArrayList;
 import java.util.Properties;
-import java.util.Set;
-import java.util.Random;
-import java.util.stream.Collectors;
 import java.security.*;
 import javax.crypto.*;
 import javax.crypto.spec.*;
 import java.security.cert.*;
-
-import java.security.spec.InvalidKeySpecException;
-import java.security.Security;
 
 class Box {    
     
@@ -31,6 +18,8 @@ class Box {
 			System.out.println ("Use: Box <movie> <address> <port>");
 			System.exit(-1);
 		}
+
+		int BUFF_SIZE = 8192;
 
 		Socket socket = UtilsBox.createTCPSock(args[1], Integer.parseInt(args[2]));
 		ObjectOutputStream output = UtilsBox.outTCPStream(socket);
@@ -141,7 +130,7 @@ class Box {
 		DHParameterSpec dhServParam = ( (javax.crypto.interfaces.DHPublicKey) servDHkeyPub).getParams();
 		KeyPairGenerator boxKpairGen = KeyPairGenerator.getInstance("DH", "BC");
         boxKpairGen.initialize(dhServParam);
-        KeyPair servPair = boxKpairGen.generateKeyPair();
+        // KeyPair servPair = boxKpairGen.generateKeyPair();
 		boxKeyAgree.doPhase(servDHkeyPub, true);
 		// System.out.println(UtilsBox.toHex(boxKeyAgree.generateSecret()));
 
@@ -153,7 +142,6 @@ class Box {
 			System.out.println("ISSUE verifying certificate");
 		}
 
-		/* TODO: move this part up, should be done before, I guess... */
 		// Verify hash
 		int hashSize = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, j-4, j));
 		j -= 4;
@@ -182,10 +170,12 @@ class Box {
 			System.out.println("Could not verify signature of StreamServer");
 		}
 
+		int portRecvUDP = socket.getLocalPort();		// Server will reply on this port
+		System.out.println("port udp: " + portRecvUDP);
 		UtilsBox.closeTCPConns(socket, input, output);
 
 
-		/********* BEGIN UDP CONNECTION *********/
+		/********* GET CS DATA *********/
 
 		System.out.println("digsig: " + digSig);
 		System.out.println("ecscpec: " + ecspec);
@@ -196,19 +186,79 @@ class Box {
 
 		byte[] DHsecret = boxKeyAgree.generateSecret();
 		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
+		IvParameterSpec iv =  new IvParameterSpec(Arrays.copyOfRange(DHsecret, DHsecret.length-10, DHsecret.length));
 		
 		byteSimm = UtilsBox.hashToKey(byteSimm, Integer.parseInt(keySizeSym));
 		
 		SecretKey macKey = null;
+		MessageDigest hfun = null;
+		Mac macF = null;
 		if(!macKeySize.equals("NULL")){
 			byte[] byteKMac = Arrays.copyOfRange(DHsecret, 128, 256);
 			byteKMac = UtilsBox.hashToKey(byteSimm, Integer.parseInt(macKeySize));
 			macKey = new SecretKeySpec(byteKMac, integrity);
+			macF = UtilsBox.prepareMacFunc(integrity, macKey);
+		} else {
+			hfun = MessageDigest.getInstance(integrity, "BC");
 		}
 		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
 
-		System.out.println("secret ksmim: \n" + UtilsBox.toHex(kSimm.getEncoded()));
-		System.out.println("secret mackey: \n" + UtilsBox.toHex(macKey.getEncoded()));
+		Cipher symEnc = UtilsBox.prepareSymEnc(ciphersuite, kSimm, iv);
+		Cipher symDec = UtilsBox.prepareSymDec(ciphersuite, kSimm, iv);
+
+		kPriv = UtilsBox.readGeneralPrivateKey(digSig);
+
+		System.out.println("secret ksmim: " + UtilsBox.toHex(kSimm.getEncoded()));
+
+		/********* BEGIN UDP CONNECTION *********/
+
+		Properties propAddr = new Properties();
+		propAddr.load(new FileInputStream(new File("./configs/address.properties")));
+
+		String hostPlayer = propAddr.getProperty("host");
+		int portPlayer = Integer.parseInt(propAddr.getProperty("port"));
+
+		System.out.println("hostPlayer: " + hostPlayer);
+		System.out.println("portPlayer: " + portPlayer);
+
+		byte[] buffer = new byte[BUFF_SIZE * 3];
+		DatagramPacket inPacket = new DatagramPacket(buffer, buffer.length);
+		byte[] data = null;
+		byte[] buffDec = null;
+
+		/* START */
+		DatagramSocket sSendUDP = new DatagramSocket();
+		DatagramSocket sRecvUDP = new DatagramSocket(portRecvUDP);
+
+		// send movie name to server
+		byte[] startMsg = null;
+		if(!macKeySize.equals("NULL")){
+			startMsg = UtilsBox.preparePacketMac(args[0].getBytes(), symEnc, kPriv, digSig, macF);
+		} else {
+			startMsg = UtilsBox.preparePacketHash(args[0].getBytes(), symEnc, kPriv, digSig, hfun);
+		}
+		UtilsBox.sendUDP(sSendUDP, startMsg, args[1], Integer.parseInt(args[2]));
+		
+		while(true){
+
+			if(UtilsBox.isFinished(inPacket)){
+				System.out.println("RILEVATA FINE");
+				break;
+			}
+			sRecvUDP.receive(inPacket);
+			data = Arrays.copyOfRange(inPacket.getData(), 0, inPacket.getLength());
+			if(macKeySize.equals("NULL")){
+				buffDec = UtilsBox.verifyHASHAndDecrypt(data, symDec, kPubBox, digSig, hfun);
+			}
+			else {
+				buffDec = UtilsBox.verifyMACAndDecrypt(data, symDec, kPubBox, digSig, macF);
+			}
+			UtilsBox.sendUDP(sSendUDP, buffDec, hostPlayer, portPlayer);
+			System.out.print(".");
+
+		}
+		
+		sRecvUDP.close();
 
 	}
 	

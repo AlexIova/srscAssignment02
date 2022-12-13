@@ -79,16 +79,6 @@ public class UtilsBox {
                 (byte)value};
     }
 
-    public static byte[] serializeObject(Object obj) throws IOException{
-        ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(bytesOut);
-        oos.writeObject(obj);
-        oos.flush();
-        byte[] bytes = bytesOut.toByteArray();
-        bytesOut.close();
-        oos.close();
-        return bytes;
-    }
 
     public static SecretKey getKeyKS(String file, String alias, String passwordKS, String passwordKey) 
                                     throws UnrecoverableKeyException, KeyStoreException, 
@@ -153,6 +143,42 @@ public class UtilsBox {
         PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
         PrivateKey key = kf.generatePrivate(keySpec);
         return key;
+
+    }
+
+    public static PrivateKey readGeneralPrivateKey(String alg) 
+                                throws NoSuchAlgorithmException, InvalidKeySpecException, 
+                                        IOException, NoSuchProviderException {
+
+        String path;
+        String type;
+        if(alg.equals("SHA256withRSA")){
+            path =  "./certificates/BoxCertRSA2048.pem";
+            type = "RSA";
+        } 
+        else if (alg.equals("SHA256withDSA")){
+            path = "./certificates/BoxCertDSA2048.pem";
+            type = "DSA";
+        } 
+        else if (alg.equals("ECDSA")){
+            path = "./certificates/BoxECDSAsecp256r1.pem";
+            type = "EC";
+        }
+        else {
+            return null;
+        }
+        String keyString = new String(Files.readAllBytes(Paths.get(path)), Charset.defaultCharset());
+
+        String privateKeyPEM = keyString
+            .replace("-----BEGIN PRIVATE KEY-----", "")
+            .replaceAll(System.lineSeparator(), "")
+            .replace("-----END PRIVATE KEY-----", "");
+
+        byte[] encoded = Base64.getDecoder().decode(privateKeyPEM);
+        KeyFactory kf = KeyFactory.getInstance(type, "BC");
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
+        PrivateKey key = kf.generatePrivate(keySpec);
+        return key;    
 
     }
 
@@ -327,7 +353,7 @@ public class UtilsBox {
 
         String hashFunc;
         if(size == 128){
-            hashFunc = "SHA1";
+            hashFunc = "MD5";
         }
         else if(size == 256){
             hashFunc = "SHA256";
@@ -340,5 +366,162 @@ public class UtilsBox {
         return hfun.digest(bytes);
 
     }
+
+    public static void sendUDP(DatagramSocket sock, byte[] msg, String hostname, int port) throws IOException{
+        
+        InetSocketAddress addr = new InetSocketAddress( hostname, port);
+        sock.send(new DatagramPacket(msg, msg.length, addr));
+
+    }
+
+    public static byte[] preparePacketMac(byte[] data, Cipher symC, PrivateKey sigKey, String digSig, Mac macF) 
+                                            throws IllegalBlockSizeException, SignatureException, 
+                                                    BadPaddingException, InvalidKeyException, 
+                                                    NoSuchAlgorithmException, NoSuchProviderException {
+        
+        byte[] msg = new byte[] { };
+        byte[] enc = symC.doFinal(data);
+        msg = byteArrConcat(msg, enc);
+        byte[] signature = sign(sigKey, digSig, msg);
+        msg = byteArrConcat(msg, signature);
+        msg = byteArrConcat(msg, intToByteArr(signature.length));
+        byte[] mac = macF.doFinal(msg);
+        msg = byteArrConcat(msg, mac);
+    
+        return msg;
+
+    }
+
+    public static byte[] preparePacketHash(byte[] data, Cipher symC, PrivateKey sigKey, String digSig, MessageDigest hashF) 
+                                            throws IllegalBlockSizeException, SignatureException, 
+                                                    BadPaddingException, InvalidKeyException, 
+                                                    NoSuchAlgorithmException, NoSuchProviderException {
+        
+        byte[] msg = new byte[] { };
+        byte[] enc = symC.doFinal(data);
+        msg = byteArrConcat(msg, enc);
+        byte[] signature = sign(sigKey, digSig, msg);
+        msg = byteArrConcat(msg, signature);
+        msg = byteArrConcat(msg, intToByteArr(signature.length));
+        byte[] hash = hashF.digest(msg);
+        msg = byteArrConcat(msg, hash);
+    
+        return msg;
+
+    }
+
+    public static Mac prepareMacFunc(String hCheck, SecretKey macKey) 
+                                        throws NoSuchAlgorithmException, InvalidKeyException, 
+                                            NoSuchProviderException {
+
+        Mac hMac = Mac.getInstance(hCheck, "BC");
+        hMac.init(macKey);
+        return hMac;
+
+	}
+
+    public static Cipher prepareSymEnc(String alg, SecretKey key, IvParameterSpec iv) 
+                                        throws NoSuchAlgorithmException, InvalidKeyException, 
+                                            NoSuchProviderException, NoSuchPaddingException,
+                                            InvalidAlgorithmParameterException {
+        
+        Cipher cipher = Cipher.getInstance(alg, "BC");
+		cipher.init(Cipher.ENCRYPT_MODE, key, iv);
+        return cipher;
+
+    }
+
+    public static Cipher prepareSymDec(String alg, SecretKey key, IvParameterSpec iv) 
+                                        throws NoSuchAlgorithmException, InvalidKeyException, 
+                                            NoSuchProviderException, NoSuchPaddingException,
+                                            InvalidAlgorithmParameterException {
+        
+        Cipher cipher = Cipher.getInstance(alg, "BC");
+		cipher.init(Cipher.DECRYPT_MODE, key, iv);
+        return cipher;
+
+    }
+
+
+    public static byte[] verifyHASHAndDecrypt(byte[] data, Cipher symC, PublicKey sigKey, String digSig, MessageDigest hashF)
+                                                throws SignatureException, IllegalBlockSizeException,
+                                                    InvalidKeyException, BadPaddingException,
+                                                    NoSuchAlgorithmException {
+        
+        int j = data.length;
+        byte[] y = Arrays.copyOfRange(data, 0, j-hashF.getDigestLength());
+        byte[] digest = hashF.digest(y);
+        byte[] hash = Arrays.copyOfRange(data, j-hashF.getDigestLength(), j);
+        if(!MessageDigest.isEqual(hash, digest)){
+            System.out.println("Problem verifying hash");
+            return null;
+        }
+        j -= hashF.getDigestLength();
+        int sizeSig = byteArrToInt(Arrays.copyOfRange(data, j-4, j));
+        j -= 4;
+        byte[] signature = Arrays.copyOfRange(data, j-sizeSig, j);
+        j -= sizeSig;
+        byte[] encData = Arrays.copyOfRange(data, 0, j);
+        if(!verifySig(digSig, sigKey, encData, signature)){
+            System.out.println("Problem verifying signature");
+            return null;
+        }
+        byte[] decData = symC.doFinal(encData);
+        
+        return decData;
+
+    }
+
+    public static byte[] verifyMACAndDecrypt(byte[] data, Cipher symC, PublicKey sigKey, String digSig, Mac macF)
+                                                throws SignatureException, IllegalBlockSizeException,
+                                                    InvalidKeyException, BadPaddingException,
+                                                    NoSuchAlgorithmException {
+
+        int j = data.length;
+        byte[] y = Arrays.copyOfRange(data, 0, j-macF.getMacLength());
+        byte[] integrity = macF.doFinal(y);
+        byte[] hmac = Arrays.copyOfRange(data, j-macF.getMacLength(), j);
+        if(!Arrays.equals(hmac, integrity)){
+            System.out.println("Problem verifying hmac");
+            return null;
+        }
+        j -= macF.getMacLength();
+        int sizeSig = byteArrToInt(Arrays.copyOfRange(data, j-4, j));
+        j -= 4;
+        byte[] signature = Arrays.copyOfRange(data, j-sizeSig, j);
+        j -= sizeSig;
+        byte[] encData = Arrays.copyOfRange(data, 0, j);
+        if(!verifySig(digSig, sigKey, encData, signature)){
+            System.out.println("Problem verifying signature");
+            return null;
+        }
+        byte[] decData = symC.doFinal(encData);
+        
+        return decData;
+
+    }
+
+
+    public static Boolean isFinished(DatagramPacket p){
+
+		byte[]  nullByte = new byte[] { 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+			};
+
+		byte[] data = Arrays.copyOfRange(p.getData(), 0, p.getLength());
+
+		return Arrays.equals(data, nullByte);
+	}
 
 }

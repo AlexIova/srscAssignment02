@@ -2,6 +2,7 @@ import java.io.*;
 import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.Charset;
@@ -330,6 +331,14 @@ public class UtilsServer {
 
     public static X509Certificate getSpecificCertificate(String alg, X509Certificate[] certArr){
 
+        if(alg.equals("ECDSA")){
+            alg = "EC";
+        } else if (alg.equals("SHA256withDSA")){
+            alg = "DSA";
+        } else if (alg.equals("SHA256withRSA")){
+            alg = "RSA";
+        }
+
         for(X509Certificate cert : certArr){
             if(cert.getPublicKey().getAlgorithm().equals(alg)){
                 return cert;
@@ -429,7 +438,7 @@ public class UtilsServer {
 
         String hashFunc;
         if(size == 128){
-            hashFunc = "SHA1";
+            hashFunc = "MD5";
         }
         else if(size == 256){
             hashFunc = "SHA256";
@@ -442,5 +451,171 @@ public class UtilsServer {
         return hfun.digest(bytes);
 
     }
+
+
+    public static byte[] preparePacketMac(byte[] data, Cipher symC, PrivateKey sigKey, String digSig, Mac macF) 
+                                            throws IllegalBlockSizeException, SignatureException, 
+                                                    BadPaddingException, InvalidKeyException, 
+                                                    NoSuchAlgorithmException, NoSuchProviderException {
+        
+        byte[] msg = new byte[] { };
+        byte[] enc = symC.doFinal(data);
+        msg = byteArrConcat(msg, enc);
+        byte[] signature = sign(sigKey, digSig, msg);
+        msg = byteArrConcat(msg, signature);
+        msg = byteArrConcat(msg, intToByteArr(signature.length));
+        byte[] mac = macF.doFinal(msg);
+        msg = byteArrConcat(msg, mac);
+    
+        return msg;
+
+    }
+
+
+    public static byte[] preparePacketHash(byte[] data, Cipher symC, PrivateKey sigKey, String digSig, MessageDigest hashF) 
+                                            throws IllegalBlockSizeException, SignatureException, 
+                                                    BadPaddingException, InvalidKeyException, 
+                                                    NoSuchAlgorithmException, NoSuchProviderException {
+        
+        byte[] msg = new byte[] { };
+        byte[] enc = symC.doFinal(data);
+        msg = byteArrConcat(msg, enc);
+        byte[] signature = sign(sigKey, digSig, msg);
+        msg = byteArrConcat(msg, signature);
+        msg = byteArrConcat(msg, intToByteArr(signature.length));
+        byte[] hash = hashF.digest(msg);
+        msg = byteArrConcat(msg, hash);
+    
+        return msg;
+
+    }
+
+
+    public static Mac prepareMacFunc(String hCheck, SecretKey macKey) 
+                                        throws NoSuchAlgorithmException, InvalidKeyException, 
+                                            NoSuchProviderException {
+
+        Mac hMac = Mac.getInstance(hCheck, "BC");
+        hMac.init(macKey);
+        return hMac;
+
+	}
+
+    public static Cipher prepareSymEnc(String alg, SecretKey key, IvParameterSpec iv) 
+                                        throws NoSuchAlgorithmException, InvalidKeyException, 
+                                            NoSuchProviderException, NoSuchPaddingException,
+                                            InvalidAlgorithmParameterException {
+        
+        Cipher cipher = Cipher.getInstance(alg, "BC");
+		cipher.init(Cipher.ENCRYPT_MODE, key, iv);
+        return cipher;
+
+    }
+
+    public static Cipher prepareSymDec(String alg, SecretKey key, IvParameterSpec iv) 
+                                        throws NoSuchAlgorithmException, InvalidKeyException, 
+                                            NoSuchProviderException, NoSuchPaddingException,
+                                            InvalidAlgorithmParameterException {
+        
+        Cipher cipher = Cipher.getInstance(alg, "BC");
+		cipher.init(Cipher.DECRYPT_MODE, key, iv);
+        return cipher;
+
+    }
+
+    public static Cipher prepareSymDec(String alg, SecretKey key) 
+                                        throws NoSuchAlgorithmException, InvalidKeyException, 
+                                            NoSuchProviderException, NoSuchPaddingException {
+        
+        Cipher cipher = Cipher.getInstance(alg, "BC");
+		cipher.init(Cipher.DECRYPT_MODE, key);
+        return cipher;
+
+    }
+
+    
+    public static byte[] verifyHASHAndDecrypt(byte[] data, Cipher symC, PublicKey sigKey, String digSig, MessageDigest hashF)
+                                                throws SignatureException, IllegalBlockSizeException,
+                                                    InvalidKeyException, BadPaddingException,
+                                                    NoSuchAlgorithmException {
+        
+        int j = data.length;
+        byte[] y = Arrays.copyOfRange(data, 0, j-hashF.getDigestLength());
+        byte[] digest = hashF.digest(y);
+        byte[] hash = Arrays.copyOfRange(data, j-hashF.getDigestLength(), j);
+        if(!MessageDigest.isEqual(hash, digest)){
+            System.out.println("Problem verifying hash");
+            return null;
+        }
+        j -= hashF.getDigestLength();
+        int sizeSig = byteArrToInt(Arrays.copyOfRange(data, j-4, j));
+        j -= 4;
+        byte[] signature = Arrays.copyOfRange(data, j-sizeSig, j);
+        j -= sizeSig;
+        byte[] encData = Arrays.copyOfRange(data, 0, j);
+        if(!verifySig(digSig, sigKey, encData, signature)){
+            System.out.println("Problem verifying signature");
+            return null;
+        }
+        byte[] decData = symC.doFinal(encData);
+        
+        return decData;
+
+    }
+
+    public static byte[] verifyMACAndDecrypt(byte[] data, Cipher symC, PublicKey sigKey, String digSig, Mac macF)
+                                                throws SignatureException, IllegalBlockSizeException,
+                                                    InvalidKeyException, BadPaddingException,
+                                                    NoSuchAlgorithmException {
+
+        int j = data.length;
+        byte[] y = Arrays.copyOfRange(data, 0, j-macF.getMacLength());
+        byte[] integrity = macF.doFinal(y);
+        byte[] hmac = Arrays.copyOfRange(data, j-macF.getMacLength(), j);
+        if(!Arrays.equals(hmac, integrity)){
+            System.out.println("Problem verifying hmac");
+            return null;
+        }
+        j -= macF.getMacLength();
+        int sizeSig = byteArrToInt(Arrays.copyOfRange(data, j-4, j));
+        j -= 4;
+        byte[] signature = Arrays.copyOfRange(data, j-sizeSig, j);
+        j -= sizeSig;
+        byte[] encData = Arrays.copyOfRange(data, 0, j);
+        if(!verifySig(digSig, sigKey, encData, signature)){
+            System.out.println("Problem verifying signature");
+            return null;
+        }
+        byte[] decData = symC.doFinal(encData);
+        
+        return decData;
+
+    }
+    
+    public static void sendUDP(DatagramSocket sock, byte[] msg, String hostname, int port) throws IOException{
+        
+        InetSocketAddress addr = new InetSocketAddress( hostname, port);
+        sock.send(new DatagramPacket(msg, msg.length, addr));
+
+    }
+
+    public static void sendNull(DatagramSocket sock, String hostname, int port) throws IOException{
+		byte[]  nullByte = new byte[] { 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+			};
+
+		sendUDP(sock, nullByte, hostname, port);
+	}
 
 }

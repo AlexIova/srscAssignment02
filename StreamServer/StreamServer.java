@@ -1,16 +1,11 @@
 import java.io.*;
-import java.math.BigInteger;
 import java.net.*;
 import java.security.*;
 import javax.crypto.*;
 import javax.crypto.spec.*;
-import javax.lang.model.type.NullType;
-
 import java.security.cert.*;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Properties;
-import java.nio.charset.StandardCharsets;
 
 
 
@@ -23,6 +18,8 @@ class StreamServer {
 			System.out.println ("Use: StreamServer <port>");
 			System.exit(-1);
 		}
+
+		int BUFF_SIZE = 8192;
 
 		/* Create connections */
 		ServerSocket serverSocket = new ServerSocket(Integer.parseInt(args[0]));
@@ -72,7 +69,7 @@ class StreamServer {
 		byte[] pDHbox = Arrays.copyOfRange(reply, i+4, i+4+lenPubDHkey);
 		i += (4 + lenPubDHkey);
 		PublicKey boxDHkeyPub = UtilsServer.publicDHkeyFromBytes(pDHbox);
-		int sizeParamDH = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
+		// int sizeParamDH = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
 		i += 4;
 		/* Prepare DH key */
 		DHParameterSpec dhBoxParam = ( (javax.crypto.interfaces.DHPublicKey) boxDHkeyPub).getParams();		
@@ -96,8 +93,6 @@ class StreamServer {
 		}
 		i += (4 + sizeCerts);
 
-
-		/* TODO: move this part up, should be done before, I guess... */
 
 		// Verify hash
 		int hashSize = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, j-4, j));
@@ -167,11 +162,14 @@ class StreamServer {
 
 		UtilsServer.sendTCP(output, msg);
 
+		String hostname = socket.getInetAddress().getHostName();
+		int port = socket.getPort();
+
 		serverSocket.close();
 		UtilsServer.closeTCPConns(socket, input, output);
 
 
-		/********* BEGIN UDP CONNECTION *********/
+		/********* GET CS DATA *********/
 
 		System.out.println("digsig: " + digSig);
 		System.out.println("ecscpec: " + ecspec);
@@ -182,20 +180,86 @@ class StreamServer {
 
 		byte[] DHsecret = serverKeyAgree.generateSecret();
 		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
+		IvParameterSpec iv =  new IvParameterSpec(Arrays.copyOfRange(DHsecret, DHsecret.length-10, DHsecret.length));
 		
 		byteSimm = UtilsServer.hashToKey(byteSimm, Integer.parseInt(keySizeSym));
 
 		SecretKey macKey = null;
+		MessageDigest hfun = null;
+		Mac macF = null;
 		if(!macKeySize.equals("NULL")){
 			byte[] byteKMac = Arrays.copyOfRange(DHsecret, 128, 256);
 			byteKMac = UtilsServer.hashToKey(byteSimm, Integer.parseInt(macKeySize));
 			macKey = new SecretKeySpec(byteKMac, integrity);
+			macF = UtilsServer.prepareMacFunc(integrity, macKey);
+		} else {
+			hfun = MessageDigest.getInstance(integrity, "BC");
 		}
 
 		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
 
-		System.out.println("secret ksmim: \n" + UtilsServer.toHex(kSimm.getEncoded()));
-		System.out.println("secret mackey: \n" + UtilsServer.toHex(macKey.getEncoded()));
+		System.out.println("secret ksmim: " + UtilsServer.toHex(kSimm.getEncoded()));
+		// System.out.println("secret mackey: " + UtilsServer.toHex(macKey.getEncoded()));
+
+		Cipher symEnc = UtilsServer.prepareSymEnc(ciphersuite, kSimm, iv);
+		Cipher symDec = UtilsServer.prepareSymDec(ciphersuite, kSimm, iv);
+
+		kPubBox = UtilsServer.getSpecificCertificate(digSig, certsBox).getPublicKey();
+
+		/********* BEGIN UDP CONNECTION *********/
+
+		DatagramSocket sSendUDP = new DatagramSocket();
+		DatagramSocket sRecvUDP = new DatagramSocket(Integer.parseInt(args[0]));
+
+		byte[] buffer = new byte[BUFF_SIZE * 3];
+		DatagramPacket inPacket = new DatagramPacket(buffer, buffer.length);
+
+		// Get movie
+		sRecvUDP.receive(inPacket);
+		byte[] data = Arrays.copyOfRange(inPacket.getData(), 0, inPacket.getLength());
+		byte[] movieB = null;
+		if(!macKeySize.equals("NULL")){
+			movieB = UtilsServer.verifyMACAndDecrypt(data, symDec, kPubBox, digSig, macF);
+		} else {
+			movieB = UtilsServer.verifyHASHAndDecrypt(data, symDec, kPubBox, digSig, hfun);
+		}
+		String movie = new String(movieB);
+		System.out.println("movie: " + movie);
+
+		DataInputStream g = new DataInputStream( new FileInputStream(movie) );
+		
+		int size = 0;
+		int count = 0;
+		long time = 0;
+		long q0 = 0;
+		byte[] buff = new byte[BUFF_SIZE];
+		byte[] buffSend = null;
+		long t0 = System.nanoTime(); //ref time for real-time stream
+
+		while (g.available() > 0) {
+			size = g.readShort();
+			time = g.readLong();
+			if ( count == 0 ) q0 = time;
+			count += 1;
+
+			g.readFully(buff, 0, size);
+
+			if(macKeySize.equals("NULL")){
+				buffSend = UtilsServer.preparePacketHash(buff, symEnc, kPriv, digSig, hfun);
+			}
+			else {
+				buffSend = UtilsServer.preparePacketMac(buff, symEnc, kPriv, digSig, macF);
+			}
+			
+			UtilsServer.sendUDP(sSendUDP, buffSend, hostname, port);
+
+			long t = System.nanoTime();
+			Thread.sleep( Math.max(0, ((time-q0)-(t-t0))/1000000));
+
+			System.out.print(".");
+
+		}
+		UtilsServer.sendNull(sSendUDP, hostname, port);
 
 	}
 
