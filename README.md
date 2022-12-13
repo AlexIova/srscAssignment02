@@ -31,7 +31,8 @@ SHA256withRSA
 `openssl x509 -req -days 1000 -in BoxCertRSA2048.csr -CA RootCA.crt -CAkey RootCA.pem -CAcreateserial -out BoxCertRSA2048.crt`
 
 SHA256withDSA  
-`openssl gendsa -out BoxCertDSA2048.pem 2048`
+`openssl dsaparam -out Boxdsaparam2048.pem 2048`
+`openssl gendsa -out BoxCertDSA2048.pem Boxdsaparam2048.pem`
 `openssl req -new -key BoxCertDSA2048.pem -out BoxCertDSA2048.csr`  
 `openssl x509 -req -days 1000 -in BoxCertDSA2048.csr -CA RootCA.crt -CAkey RootCA.pem -CAcreateserial -out BoxCertDSA2048.crt`
 
@@ -52,8 +53,8 @@ SHA256withRSA
 `openssl x509 -req -days 1000 -in ServerCertRSA2048.csr -CA RootCA.crt -CAkey RootCA.pem -CAcreateserial -out ServerCertRSA2048.crt`
 
 SHA256withDSA  
-`openssl gendsa -out ServerCertDSA2048.pem 2048`
-`openssl req -new -key ServerCertDSA2048.pem -out ServerCertDSA2048.csr`  
+`openssl dsaparam -out Serverdsaparam2048.pem 2048`
+`openssl gendsa -out ServerCertDSA2048.pem Serverdsaparam2048.pem`
 `openssl x509 -req -days 1000 -in ServerCertDSA2048.csr -CA RootCA.crt -CAkey RootCA.pem -CAcreateserial -out ServerCertDSA2048.crt`
 
 ECDSA, ecspec: secp256r1
