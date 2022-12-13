@@ -297,8 +297,8 @@ public class UtilsServer {
         String[] serverCS = fileToString(path).split(",");
         String[] boxCS = byteToString(recv).split(",");
 
-        for(String sBox: boxCS){
-            for(String sServer : serverCS){
+        for(String sServer : serverCS){
+            for(String sBox: boxCS){
                 if(sBox.equals(sServer))
                     return sServer;
             }
@@ -318,12 +318,15 @@ public class UtilsServer {
         CertificateFactory cf = CertificateFactory.getInstance("X.509");
         ArrayList<X509Certificate> certs = new ArrayList<X509Certificate>();
         X509Certificate tmpCert = null;
-        for(int i = 0; i < arrCerts.length; i++){
+        for(int i = 0; i < arrCerts.length-1; i++){
             tmpCert = (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(arrCerts[i].getBytes()));
             certs.add(tmpCert);
         }
 
-        return (X509Certificate[]) certs.toArray();
+        X509Certificate[] x509cert = new X509Certificate[arrCerts.length-1];
+        x509cert = certs.toArray(x509cert);
+
+        return x509cert;
 
     }
 

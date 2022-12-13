@@ -82,13 +82,13 @@ class StreamServer {
 		int sizeNonce = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, 0, 4));
 		byte[] nonce = Arrays.copyOfRange(reply, 4, 4+sizeNonce);
 		i += (4 + sizeNonce);
-		System.exit(1);
 
 		// get ciphersuites
 		int sizeCS = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
 		i += 4;
 		String cs = UtilsServer.chooseCS(Arrays.copyOfRange(reply, i, i+sizeCS), "./configs/preferredCipherSuites");
 		System.out.println("Ciphersuite chosen: " + cs);
+		i += sizeCS;
 
 		// Get DH parameters
 		int lenPubDHkey = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
@@ -107,7 +107,7 @@ class StreamServer {
 		KeyAgreement serverKeyAgree = KeyAgreement.getInstance("DH", "BC");
         serverKeyAgree.init(servPair.getPrivate());
 		serverKeyAgree.doPhase(boxDHkeyPub, true);
-		System.out.println(UtilsServer.toHex(serverKeyAgree.generateSecret()));
+		// System.out.println(UtilsServer.toHex(serverKeyAgree.generateSecret()));
 
 		// Get certificates
 		int sizeCerts = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
