@@ -384,7 +384,6 @@ public class UtilsBox {
 
     }
 
-
     public static byte[] preparePacketMac(byte[] data, Cipher symC, PrivateKey sigKey, String digSig, Mac macF) 
                                             throws IllegalBlockSizeException, SignatureException, 
                                                     BadPaddingException, InvalidKeyException, 
@@ -394,15 +393,14 @@ public class UtilsBox {
         byte[] enc = symC.doFinal(data);
         msg = byteArrConcat(msg, enc);
         byte[] signature = sign(sigKey, digSig, msg);
-        msg = byteArrConcat(msg, intToByteArr(signature.length));
         msg = byteArrConcat(msg, signature);
+        msg = byteArrConcat(msg, intToByteArr(signature.length));
         byte[] mac = macF.doFinal(msg);
         msg = byteArrConcat(msg, mac);
     
         return msg;
 
     }
-
 
     public static byte[] preparePacketHash(byte[] data, Cipher symC, PrivateKey sigKey, String digSig, MessageDigest hashF) 
                                             throws IllegalBlockSizeException, SignatureException, 
@@ -422,7 +420,6 @@ public class UtilsBox {
 
     }
 
-
     public static Mac prepareMacFunc(String hCheck, SecretKey macKey) 
                                         throws NoSuchAlgorithmException, InvalidKeyException, 
                                             NoSuchProviderException {
@@ -433,13 +430,26 @@ public class UtilsBox {
 
 	}
 
-    public static Cipher prepareSymEnc(String alg, SecretKey key) 
+    public static Cipher prepareSymEnc(String alg, SecretKey key, IvParameterSpec iv) 
                                         throws NoSuchAlgorithmException, InvalidKeyException, 
-                                            NoSuchProviderException, NoSuchPaddingException {
+                                            NoSuchProviderException, NoSuchPaddingException,
+                                            InvalidAlgorithmParameterException {
         
         Cipher cipher = Cipher.getInstance(alg, "BC");
-		cipher.init(Cipher.ENCRYPT_MODE, key);
+		cipher.init(Cipher.ENCRYPT_MODE, key, iv);
         return cipher;
 
     }
+
+    public static Cipher prepareSymDec(String alg, SecretKey key, IvParameterSpec iv) 
+                                        throws NoSuchAlgorithmException, InvalidKeyException, 
+                                            NoSuchProviderException, NoSuchPaddingException,
+                                            InvalidAlgorithmParameterException {
+        
+        Cipher cipher = Cipher.getInstance(alg, "BC");
+		cipher.init(Cipher.DECRYPT_MODE, key, iv);
+        return cipher;
+
+    }
+
 }

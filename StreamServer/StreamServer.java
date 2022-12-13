@@ -24,6 +24,8 @@ class StreamServer {
 			System.exit(-1);
 		}
 
+		int BUFF_SIZE = 8192;
+
 		/* Create connections */
 		ServerSocket serverSocket = new ServerSocket(Integer.parseInt(args[0]));
 		Socket socket = serverSocket.accept();
@@ -171,7 +173,7 @@ class StreamServer {
 		UtilsServer.closeTCPConns(socket, input, output);
 
 
-		/********* BEGIN UDP CONNECTION *********/
+		/********* GET CS DATA *********/
 
 		System.out.println("digsig: " + digSig);
 		System.out.println("ecscpec: " + ecspec);
@@ -182,20 +184,51 @@ class StreamServer {
 
 		byte[] DHsecret = serverKeyAgree.generateSecret();
 		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
+		IvParameterSpec iv =  new IvParameterSpec(Arrays.copyOfRange(DHsecret, 0, 10));
 		
 		byteSimm = UtilsServer.hashToKey(byteSimm, Integer.parseInt(keySizeSym));
 
 		SecretKey macKey = null;
+		MessageDigest hfun = null;
+		Mac macF = null;
 		if(!macKeySize.equals("NULL")){
 			byte[] byteKMac = Arrays.copyOfRange(DHsecret, 128, 256);
 			byteKMac = UtilsServer.hashToKey(byteSimm, Integer.parseInt(macKeySize));
 			macKey = new SecretKeySpec(byteKMac, integrity);
+			macF = UtilsServer.prepareMacFunc(integrity, macKey);
+		} else {
+			hfun = MessageDigest.getInstance(integrity, "BC");
 		}
 
 		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
 
 		System.out.println("secret ksmim: " + UtilsServer.toHex(kSimm.getEncoded()));
 		System.out.println("secret mackey: " + UtilsServer.toHex(macKey.getEncoded()));
+
+		Cipher symEnc = UtilsServer.prepareSymEnc(ciphersuite, kSimm, iv);
+		Cipher symDec = UtilsServer.prepareSymDec(ciphersuite, kSimm, iv);
+
+		kPubBox = UtilsServer.getSpecificCertificate(digSig, certsBox).getPublicKey();
+
+		/********* BEGIN UDP CONNECTION *********/
+
+		DatagramSocket sSendUDP = new DatagramSocket();
+		DatagramSocket sRecvUDP = new DatagramSocket(Integer.parseInt(args[0]));
+
+		byte[] buffer = new byte[BUFF_SIZE * 3];
+		DatagramPacket inPacket = new DatagramPacket(buffer, buffer.length);
+
+		// Get movie
+		sRecvUDP.receive(inPacket);
+		byte[] data = Arrays.copyOfRange(inPacket.getData(), 0, inPacket.getLength());
+		byte[] movieB = null;
+		if(!macKeySize.equals("NULL")){
+			movieB = UtilsServer.verifyMACAndDecrypt(data, symDec, kPubBox, digSig, macF);
+		} else {
+			movieB = UtilsServer.verifyHASHAndDecrypt(data, symDec, kPubBox, digSig, hfun);
+		}
+		String movie = new String(movieB);
+		System.out.println("movie: " + movie);
 
 	}
 

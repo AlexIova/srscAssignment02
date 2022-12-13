@@ -198,6 +198,7 @@ class Box {
 
 		byte[] DHsecret = boxKeyAgree.generateSecret();
 		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
+		IvParameterSpec iv =  new IvParameterSpec(Arrays.copyOfRange(DHsecret, 0, 10));
 		
 		byteSimm = UtilsBox.hashToKey(byteSimm, Integer.parseInt(keySizeSym));
 		
@@ -214,7 +215,7 @@ class Box {
 		}
 		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
 
-		Cipher symEnc = UtilsBox.prepareSymEnc(ciphersuite, kSimm);
+		Cipher symEnc = UtilsBox.prepareSymEnc(ciphersuite, kSimm, iv);
 
 		kPriv = UtilsBox.readGeneralPrivateKey(digSig);
 
