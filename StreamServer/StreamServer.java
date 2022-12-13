@@ -1,16 +1,11 @@
 import java.io.*;
-import java.math.BigInteger;
 import java.net.*;
 import java.security.*;
 import javax.crypto.*;
 import javax.crypto.spec.*;
-import javax.lang.model.type.NullType;
-
 import java.security.cert.*;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Properties;
-import java.nio.charset.StandardCharsets;
 
 
 
@@ -74,7 +69,7 @@ class StreamServer {
 		byte[] pDHbox = Arrays.copyOfRange(reply, i+4, i+4+lenPubDHkey);
 		i += (4 + lenPubDHkey);
 		PublicKey boxDHkeyPub = UtilsServer.publicDHkeyFromBytes(pDHbox);
-		int sizeParamDH = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
+		// int sizeParamDH = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
 		i += 4;
 		/* Prepare DH key */
 		DHParameterSpec dhBoxParam = ( (javax.crypto.interfaces.DHPublicKey) boxDHkeyPub).getParams();		
@@ -98,8 +93,6 @@ class StreamServer {
 		}
 		i += (4 + sizeCerts);
 
-
-		/* TODO: move this part up, should be done before, I guess... */
 
 		// Verify hash
 		int hashSize = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, j-4, j));

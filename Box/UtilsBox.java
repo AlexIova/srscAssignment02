@@ -79,16 +79,6 @@ public class UtilsBox {
                 (byte)value};
     }
 
-    public static byte[] serializeObject(Object obj) throws IOException{
-        ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(bytesOut);
-        oos.writeObject(obj);
-        oos.flush();
-        byte[] bytes = bytesOut.toByteArray();
-        bytesOut.close();
-        oos.close();
-        return bytes;
-    }
 
     public static SecretKey getKeyKS(String file, String alias, String passwordKS, String passwordKey) 
                                     throws UnrecoverableKeyException, KeyStoreException, 

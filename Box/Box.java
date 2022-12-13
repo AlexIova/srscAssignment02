@@ -1,26 +1,13 @@
 import java.io.*;
-import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.MulticastSocket;
 import java.net.Socket;
-import java.net.InetSocketAddress;
-import java.net.InetAddress;
-import java.net.SocketAddress;
 import java.util.Arrays;
-import java.util.Base64;
-import java.util.ArrayList;
 import java.util.Properties;
-import java.util.Set;
-import java.util.Random;
-import java.util.stream.Collectors;
 import java.security.*;
 import javax.crypto.*;
 import javax.crypto.spec.*;
 import java.security.cert.*;
-
-import java.security.spec.InvalidKeySpecException;
-import java.security.Security;
 
 class Box {    
     
@@ -143,7 +130,7 @@ class Box {
 		DHParameterSpec dhServParam = ( (javax.crypto.interfaces.DHPublicKey) servDHkeyPub).getParams();
 		KeyPairGenerator boxKpairGen = KeyPairGenerator.getInstance("DH", "BC");
         boxKpairGen.initialize(dhServParam);
-        KeyPair servPair = boxKpairGen.generateKeyPair();
+        // KeyPair servPair = boxKpairGen.generateKeyPair();
 		boxKeyAgree.doPhase(servDHkeyPub, true);
 		// System.out.println(UtilsBox.toHex(boxKeyAgree.generateSecret()));
 
@@ -155,7 +142,6 @@ class Box {
 			System.out.println("ISSUE verifying certificate");
 		}
 
-		/* TODO: move this part up, should be done before, I guess... */
 		// Verify hash
 		int hashSize = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, j-4, j));
 		j -= 4;
@@ -223,7 +209,6 @@ class Box {
 		kPriv = UtilsBox.readGeneralPrivateKey(digSig);
 
 		System.out.println("secret ksmim: " + UtilsBox.toHex(kSimm.getEncoded()));
-		// System.out.println("secret mackey: " + UtilsBox.toHex(macKey.getEncoded()));
 
 		/********* BEGIN UDP CONNECTION *********/
 
@@ -272,6 +257,8 @@ class Box {
 			System.out.print(".");
 
 		}
+		
+		sRecvUDP.close();
 
 	}
 	
