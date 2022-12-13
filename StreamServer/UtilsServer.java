@@ -388,7 +388,6 @@ public class UtilsServer {
 
     }
 
-    // TODO: fai funzionare con EC
     public static PrivateKey readGeneralPrivateKey(String alg) 
                                 throws NoSuchAlgorithmException, InvalidKeySpecException, 
                                         IOException, NoSuchProviderException {
@@ -422,6 +421,25 @@ public class UtilsServer {
         PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
         PrivateKey key = kf.generatePrivate(keySpec);
         return key;    
+
+    }
+
+    public static byte[] hashToKey(byte[] bytes, int size) 
+                                throws NoSuchAlgorithmException, NoSuchProviderException{
+
+        String hashFunc;
+        if(size == 128){
+            hashFunc = "SHA1";
+        }
+        else if(size == 256){
+            hashFunc = "SHA256";
+        }
+        else {
+            return null;
+        }
+        MessageDigest hfun = MessageDigest.getInstance(hashFunc, "BC");
+
+        return hfun.digest(bytes);
 
     }
 

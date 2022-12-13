@@ -120,8 +120,8 @@ class Box {
 		// Get nonce
 		int sizeNonceReply = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, 0, 4));
 		byte[] nonceReply = Arrays.copyOfRange(reply, 4, 4 + sizeNonceReply);
-		if (Arrays.equals(nonce, nonceReply)){
-			System.out.println("Nonce corresponds");
+		if (!Arrays.equals(nonce, nonceReply)){
+			System.out.println("Nonce does not correspond");
 		}
 		i += 4 + sizeNonceReply;
 
@@ -187,6 +187,28 @@ class Box {
 
 		/********* BEGIN UDP CONNECTION *********/
 
+		System.out.println("digsig: " + digSig);
+		System.out.println("ecscpec: " + ecspec);
+		System.out.println("ciphersuites: " + ciphersuite);
+		System.out.println("keySizeSym " + keySizeSym);
+		System.out.println("integrity " + integrity);
+		System.out.println("macKeySize " + macKeySize);
+
+		byte[] DHsecret = boxKeyAgree.generateSecret();
+		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
+		
+		byteSimm = UtilsBox.hashToKey(byteSimm, Integer.parseInt(keySizeSym));
+		
+		SecretKey macKey = null;
+		if(!macKeySize.equals("NULL")){
+			byte[] byteKMac = Arrays.copyOfRange(DHsecret, 128, 256);
+			byteKMac = UtilsBox.hashToKey(byteSimm, Integer.parseInt(macKeySize));
+			macKey = new SecretKeySpec(byteKMac, integrity);
+		}
+		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
+
+		System.out.println("secret ksmim: \n" + UtilsBox.toHex(kSimm.getEncoded()));
+		System.out.println("secret mackey: \n" + UtilsBox.toHex(macKey.getEncoded()));
 
 	}
 	

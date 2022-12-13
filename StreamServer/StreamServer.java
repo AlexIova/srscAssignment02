@@ -173,7 +173,29 @@ class StreamServer {
 
 		/********* BEGIN UDP CONNECTION *********/
 
+		System.out.println("digsig: " + digSig);
+		System.out.println("ecscpec: " + ecspec);
+		System.out.println("ciphersuites: " + ciphersuite);
+		System.out.println("keySizeSym " + keySizeSym);
+		System.out.println("integrity " + integrity);
+		System.out.println("macKeySize " + macKeySize);
 
+		byte[] DHsecret = serverKeyAgree.generateSecret();
+		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
+		
+		byteSimm = UtilsServer.hashToKey(byteSimm, Integer.parseInt(keySizeSym));
+
+		SecretKey macKey = null;
+		if(!macKeySize.equals("NULL")){
+			byte[] byteKMac = Arrays.copyOfRange(DHsecret, 128, 256);
+			byteKMac = UtilsServer.hashToKey(byteSimm, Integer.parseInt(macKeySize));
+			macKey = new SecretKeySpec(byteKMac, integrity);
+		}
+
+		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
+
+		System.out.println("secret ksmim: \n" + UtilsServer.toHex(kSimm.getEncoded()));
+		System.out.println("secret mackey: \n" + UtilsServer.toHex(macKey.getEncoded()));
 
 	}
 

@@ -322,4 +322,23 @@ public class UtilsBox {
 
 	}
 
+    public static byte[] hashToKey(byte[] bytes, int size) 
+                                throws NoSuchAlgorithmException, NoSuchProviderException{
+
+        String hashFunc;
+        if(size == 128){
+            hashFunc = "SHA1";
+        }
+        else if(size == 256){
+            hashFunc = "SHA256";
+        }
+        else {
+            return null;
+        }
+        MessageDigest hfun = MessageDigest.getInstance(hashFunc, "BC");
+
+        return hfun.digest(bytes);
+
+    }
+
 }
