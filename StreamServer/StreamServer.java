@@ -29,20 +29,23 @@ class StreamServer {
 
 		/* Variables */
 		String hashFunc = "SHA256";
-		String kMahInit = "HMac-SHA1";
+		String kMacInit = "HMac-SHA1";
 		String initSig = "SHA256withRSA";
 
 		/* Prepare kmac functions */
 		SecretKey mackeyBox = UtilsServer.getKeyKS("configs/kmacKeyStoreBox.pkcs12", "mackey", "password", "password");
-		Mac macBox = UtilsServer.prepareMacFunc(kMahInit, mackeyBox);
+		Mac macBox = UtilsServer.prepareMacFunc(kMacInit, mackeyBox);
 		SecretKey mackeySS = UtilsServer.getKeyKS("configs/kmacKeyStoreSS.pkcs12", "mackey", "password", "password");
-		Mac macSS = UtilsServer.prepareMacFunc(kMahInit, mackeySS);
+		Mac macSS = UtilsServer.prepareMacFunc(kMacInit, mackeySS);
 
 		/*--------------------------- Receive message ---------------------------*/
 		byte[] reply = (byte[]) UtilsServer.recvTCP(input);
 
-		int i = 0;					// left pointer to know how much read from reply
-		int j = reply.length; 		// right pointer to know how much read from reply
+		int sizePackRecv = reply.length;
+
+		long ti = System.currentTimeMillis();	// initial time
+		int i = 0;								// left pointer to know how much read from reply
+		int j = reply.length; 					// right pointer to know how much read from reply
 		
 		// Verify kmac
 		int sizeKmac = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, reply.length-4, reply.length));
@@ -159,8 +162,8 @@ class StreamServer {
 		msg = UtilsServer.byteArrConcat(msg, macBox.doFinal(msg));
 		msg = UtilsServer.byteArrConcat(msg, UtilsServer.intToByteArr(macBox.getMacLength()));
 
-
 		UtilsServer.sendTCP(output, msg);
+		int sizePackSent = msg.length;
 
 		String hostname = socket.getInetAddress().getHostName();
 		int port = socket.getPort();
@@ -206,7 +209,14 @@ class StreamServer {
 
 		kPubBox = UtilsServer.getSpecificCertificate(digSig, certsBox).getPublicKey();
 
-		/********* BEGIN UDP CONNECTION *********/
+		long tf = System.currentTimeMillis();
+		PrintStatsServer.PrintHandShake(tf-ti, kMacInit, DHsecret, initSig, sizePackSent, sizePackRecv);
+
+		/******************* BEGIN UDP CONNECTION ***********************/
+
+		int nf = 0; 		// number of sent frames in the stream
+		int ms = 0; 		// total size of the stremed movie
+
 
 		DatagramSocket sSendUDP = new DatagramSocket();
 		DatagramSocket sRecvUDP = new DatagramSocket(Integer.parseInt(args[0]));
@@ -236,10 +246,13 @@ class StreamServer {
 		byte[] buffSend = null;
 		long t0 = System.nanoTime(); //ref time for real-time stream
 
+		long initTime = System.nanoTime(); //ref time for real-time stream
+
 		int seq = 0;
 		while (g.available() > 0) {
 			size = g.readShort();
 			time = g.readLong();
+			ms += size;
 			if ( count == 0 ) q0 = time;
 			count += 1;
 
@@ -259,6 +272,7 @@ class StreamServer {
 			}
 			
 			UtilsServer.sendUDP(sSendUDP, buffSend, hostname, port);
+			nf++;
 
 			long t = System.nanoTime();
 			Thread.sleep( Math.max(0, ((time-q0)-(t-t0))/1000000));
@@ -268,8 +282,12 @@ class StreamServer {
 		}
 		System.out.println("sono uscito");
 		UtilsServer.sendNull(sSendUDP, hostname, port);
+		long finTime = System.nanoTime();
+		int etm = (int) (finTime - initTime)/1000; 		// total elapsed time of the sent movie
 		System.out.println("Sent Finished");
 		g.close();
+
+		PrintStatsServer.PrintStream(movie, ciphersuite, integrity, kSimm, nf, ms, etm);
 
 	}
 

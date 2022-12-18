@@ -29,15 +29,16 @@ class Box {
 
 		/* Variables */
 		String hashFunc = "SHA256";
-		String kMahInit = "HMac-SHA1";
+		String kMacInit = "HMac-SHA1";
 		String initSig = "SHA256withRSA";
 
+		long ti = System.currentTimeMillis();
 
 		/* Prepare kmac functions */
 		SecretKey mackeySS = UtilsBox.getKeyKS("configs/kmacKeyStoreSS.pkcs12", "mackey", "password", "password");
-		Mac macSS = UtilsBox.prepareMacFunc(kMahInit, mackeySS);
+		Mac macSS = UtilsBox.prepareMacFunc(kMacInit, mackeySS);
 		SecretKey mackeyBox = UtilsBox.getKeyKS("configs/kmacKeyStoreBox.pkcs12", "mackey", "password", "password");
-		Mac macBox = UtilsBox.prepareMacFunc(kMahInit, mackeyBox);
+		Mac macBox = UtilsBox.prepareMacFunc(kMacInit, mackeyBox);
 
 		/* RSAKeys for signature*/
 		PrivateKey kPriv = UtilsBox.readRSAPrivateKey("./certificates/BoxCertRSA2048.pem");
@@ -86,12 +87,14 @@ class Box {
 
 		/* Send message */
 		UtilsBox.sendTCP(output, msg);
+		int sizePackSent = msg.length;
 
 
 		/******************** Receive reply ********************/
 
 		
 		byte[] reply = (byte[]) UtilsBox.recvTCP(input);
+		int sizePackRecv = reply.length;
 
 		int i = 0;					// Pointer from left
 		int j = reply.length;		// Pointer from right
@@ -210,6 +213,11 @@ class Box {
 
 		System.out.println("secret ksmim: " + UtilsBox.toHex(kSimm.getEncoded()));
 
+		long tf = System.currentTimeMillis();
+		long latency = tf - ti;
+
+		PrintStatsBox.PrintHandShake(latency, kMacInit, DHsecret, initSig, sizePackSent, sizePackRecv);
+
 		/********* BEGIN UDP CONNECTION *********/
 
 		Properties propAddr = new Properties();
@@ -240,15 +248,23 @@ class Box {
 		UtilsBox.sendUDP(sSendUDP, startMsg, args[1], Integer.parseInt(args[2]));
 		
 		int seqRCV;
+		Boolean ok = false;
+		int discarded = 0;
+		int sizeC = 0;
+		int sizeD = 0;
+		int nf = 0;
+		ti = System.nanoTime();
 		while(true){
 
 			sRecvUDP.receive(inPacket);
+			nf++;
 			
 			if(UtilsBox.isFinished(inPacket)){
 				System.out.println("RILEVATA FINE");
 				break;
 			}
 			data = Arrays.copyOfRange(inPacket.getData(), 0, inPacket.getLength());
+			sizeC += data.length;
 			if(macKeySize.equals("NULL")){
 				if(UtilsBox.isGCM(ciphersuite)){
 					seqRCV = UtilsBox.getSeqHash(data, hfun);
@@ -256,6 +272,7 @@ class Box {
 					symDec = UtilsBox.prepareSymDec(ciphersuite, kSimm, iv);
 				}
 				buffDec = UtilsBox.verifyHASHAndDecrypt(data, symDec, kPubBox, digSig, hfun);
+				if(buffDec != null) ok = true;
 			}
 			else {
 				if(UtilsBox.isGCM(ciphersuite)){
@@ -264,11 +281,23 @@ class Box {
 					symDec = UtilsBox.prepareSymDec(ciphersuite, kSimm, iv);
 				}
 				buffDec = UtilsBox.verifyMACAndDecrypt(data, symDec, kPubBox, digSig, macF);
+				if(buffDec != null) ok = true;
 			}
-			UtilsBox.sendUDP(sSendUDP, buffDec, hostPlayer, portPlayer);
+			if(ok){
+				sizeD += buffDec.length;
+				UtilsBox.sendUDP(sSendUDP, buffDec, hostPlayer, portPlayer);
+			} else {
+				discarded++;
+			}
+			
 			System.out.print(".");
 
 		}
+
+		tf = System.nanoTime();
+		int totTime = (int) (tf - ti) / 1000;
+		
+		PrintStatsBox.printStream(args[0], ciphersuite, integrity, kSimm, nf, sizeC, sizeD, totTime, discarded);
 		
 		sRecvUDP.close();
 
