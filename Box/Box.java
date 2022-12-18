@@ -186,7 +186,7 @@ class Box {
 
 		byte[] DHsecret = boxKeyAgree.generateSecret();
 		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
-		IvParameterSpec iv =  new IvParameterSpec(Arrays.copyOfRange(DHsecret, DHsecret.length-10, DHsecret.length));
+		IvParameterSpec iv = UtilsBox.getAnotherIV(DHsecret, 0);
 		
 		byteSimm = UtilsBox.hashToKey(byteSimm, Integer.parseInt(keySizeSym));
 		
@@ -239,18 +239,30 @@ class Box {
 		}
 		UtilsBox.sendUDP(sSendUDP, startMsg, args[1], Integer.parseInt(args[2]));
 		
+		int seqRCV;
 		while(true){
 
+			sRecvUDP.receive(inPacket);
+			
 			if(UtilsBox.isFinished(inPacket)){
 				System.out.println("RILEVATA FINE");
 				break;
 			}
-			sRecvUDP.receive(inPacket);
 			data = Arrays.copyOfRange(inPacket.getData(), 0, inPacket.getLength());
 			if(macKeySize.equals("NULL")){
+				if(UtilsBox.isGCM(ciphersuite)){
+					seqRCV = UtilsBox.getSeqHash(data, hfun);
+					iv = UtilsBox.getAnotherIV(DHsecret, seqRCV);
+					symDec = UtilsBox.prepareSymDec(ciphersuite, kSimm, iv);
+				}
 				buffDec = UtilsBox.verifyHASHAndDecrypt(data, symDec, kPubBox, digSig, hfun);
 			}
 			else {
+				if(UtilsBox.isGCM(ciphersuite)){
+					seqRCV = UtilsBox.getSeqHash(data, hfun);
+					iv = UtilsBox.getAnotherIV(DHsecret, seqRCV);
+					symDec = UtilsBox.prepareSymDec(ciphersuite, kSimm, iv);
+				}
 				buffDec = UtilsBox.verifyMACAndDecrypt(data, symDec, kPubBox, digSig, macF);
 			}
 			UtilsBox.sendUDP(sSendUDP, buffDec, hostPlayer, portPlayer);
