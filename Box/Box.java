@@ -242,11 +242,12 @@ class Box {
 		int seqRCV;
 		while(true){
 
+			sRecvUDP.receive(inPacket);
+			
 			if(UtilsBox.isFinished(inPacket)){
 				System.out.println("RILEVATA FINE");
 				break;
 			}
-			sRecvUDP.receive(inPacket);
 			data = Arrays.copyOfRange(inPacket.getData(), 0, inPacket.getLength());
 			if(macKeySize.equals("NULL")){
 				if(UtilsBox.isGCM(ciphersuite)){

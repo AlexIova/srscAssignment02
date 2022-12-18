@@ -266,6 +266,7 @@ class StreamServer {
 			System.out.print(".");
 
 		}
+		System.out.println("sono uscito");
 		UtilsServer.sendNull(sSendUDP, hostname, port);
 		System.out.println("Sent Finished");
 		g.close();
