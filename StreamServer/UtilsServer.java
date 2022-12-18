@@ -453,7 +453,7 @@ public class UtilsServer {
     }
 
 
-    public static byte[] preparePacketMac(byte[] data, Cipher symC, PrivateKey sigKey, String digSig, Mac macF) 
+    public static byte[] preparePacketMac(byte[] data, Cipher symC, PrivateKey sigKey, String digSig, Mac macF, int seq) 
                                             throws IllegalBlockSizeException, SignatureException, 
                                                     BadPaddingException, InvalidKeyException, 
                                                     NoSuchAlgorithmException, NoSuchProviderException {
@@ -461,6 +461,7 @@ public class UtilsServer {
         byte[] msg = new byte[] { };
         byte[] enc = symC.doFinal(data);
         msg = byteArrConcat(msg, enc);
+        msg = byteArrConcat(msg, intToByteArr(seq));
         byte[] signature = sign(sigKey, digSig, msg);
         msg = byteArrConcat(msg, signature);
         msg = byteArrConcat(msg, intToByteArr(signature.length));
@@ -472,7 +473,7 @@ public class UtilsServer {
     }
 
 
-    public static byte[] preparePacketHash(byte[] data, Cipher symC, PrivateKey sigKey, String digSig, MessageDigest hashF) 
+    public static byte[] preparePacketHash(byte[] data, Cipher symC, PrivateKey sigKey, String digSig, MessageDigest hashF, int seq) 
                                             throws IllegalBlockSizeException, SignatureException, 
                                                     BadPaddingException, InvalidKeyException, 
                                                     NoSuchAlgorithmException, NoSuchProviderException {
@@ -480,6 +481,7 @@ public class UtilsServer {
         byte[] msg = new byte[] { };
         byte[] enc = symC.doFinal(data);
         msg = byteArrConcat(msg, enc);
+        msg = byteArrConcat(msg, intToByteArr(seq));
         byte[] signature = sign(sigKey, digSig, msg);
         msg = byteArrConcat(msg, signature);
         msg = byteArrConcat(msg, intToByteArr(signature.length));
@@ -617,5 +619,22 @@ public class UtilsServer {
 
 		sendUDP(sock, nullByte, hostname, port);
 	}
+
+    public static Boolean isGCM(String algorithm){
+
+        String[] parts = algorithm.split("/");
+        return parts[1].equals("GCM");
+
+    }
+
+    public static IvParameterSpec getAnotherIV(byte[] DHsecret, int seq){
+
+        seq = seq % 24;
+
+        byte[] copy = Arrays.copyOfRange(DHsecret, seq*10, seq*10 + 10);
+
+        return new IvParameterSpec(copy);
+    }
+
 
 }

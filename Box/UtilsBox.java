@@ -461,11 +461,13 @@ public class UtilsBox {
         j -= 4;
         byte[] signature = Arrays.copyOfRange(data, j-sizeSig, j);
         j -= sizeSig;
-        byte[] encData = Arrays.copyOfRange(data, 0, j);
-        if(!verifySig(digSig, sigKey, encData, signature)){
+        byte[] last = Arrays.copyOfRange(data, 0, j);
+        if(!verifySig(digSig, sigKey, last, signature)){
             System.out.println("Problem verifying signature");
             return null;
         }
+        j -= 4;     // skip seq number
+        byte[] encData = Arrays.copyOfRange(data, 0, j);
         byte[] decData = symC.doFinal(encData);
         
         return decData;
@@ -490,11 +492,14 @@ public class UtilsBox {
         j -= 4;
         byte[] signature = Arrays.copyOfRange(data, j-sizeSig, j);
         j -= sizeSig;
-        byte[] encData = Arrays.copyOfRange(data, 0, j);
-        if(!verifySig(digSig, sigKey, encData, signature)){
+        byte[] last = Arrays.copyOfRange(data, 0, j);
+        if(!verifySig(digSig, sigKey, last, signature)){
             System.out.println("Problem verifying signature");
             return null;
         }
+        byte[] seq = Arrays.copyOfRange(data, j-4, j);
+        j -= 4;
+        byte[] encData = Arrays.copyOfRange(data, 0, j);
         byte[] decData = symC.doFinal(encData);
         
         return decData;
@@ -523,5 +528,57 @@ public class UtilsBox {
 
 		return Arrays.equals(data, nullByte);
 	}
+
+    public static Boolean isGCM(String algorithm){
+
+        String[] parts = algorithm.split("/");
+        return parts[1].equals("GCM");
+
+    }
+
+    public static IvParameterSpec getAnotherIV(byte[] DHsecret, int seq){
+
+        seq = seq % 24;
+
+        byte[] copy = Arrays.copyOfRange(DHsecret, seq*10, seq*10 + 10);
+
+        return new IvParameterSpec(copy);
+    }
+
+    public static int getSeqHash(byte[] data, MessageDigest hashF){
+
+        int j = data.length;
+        byte[] y = Arrays.copyOfRange(data, 0, j-hashF.getDigestLength());
+        byte[] digest = hashF.digest(y);
+        byte[] hash = Arrays.copyOfRange(data, j-hashF.getDigestLength(), j);
+        j -= hashF.getDigestLength();
+        int sizeSig = byteArrToInt(Arrays.copyOfRange(data, j-4, j));
+        j -= 4;
+        byte[] signature = Arrays.copyOfRange(data, j-sizeSig, j);
+        j -= sizeSig;
+        byte[] last = Arrays.copyOfRange(data, 0, j);
+        byte[] seqB = Arrays.copyOfRange(data, j-4, j);
+
+        return byteArrToInt(seqB);
+
+    }
+
+    public static int getSeqMac(byte[] data, MessageDigest hashF){
+
+        int j = data.length;
+        byte[] y = Arrays.copyOfRange(data, 0, j-hashF.getDigestLength());
+        byte[] digest = hashF.digest(y);
+        byte[] hash = Arrays.copyOfRange(data, j-hashF.getDigestLength(), j);
+        j -= hashF.getDigestLength();
+        int sizeSig = byteArrToInt(Arrays.copyOfRange(data, j-4, j));
+        j -= 4;
+        byte[] signature = Arrays.copyOfRange(data, j-sizeSig, j);
+        j -= sizeSig;
+        byte[] last = Arrays.copyOfRange(data, 0, j);
+        byte[] seqB = Arrays.copyOfRange(data, j-4, j);
+
+        return byteArrToInt(seqB);
+
+    }
 
 }

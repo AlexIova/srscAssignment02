@@ -180,7 +180,7 @@ class StreamServer {
 
 		byte[] DHsecret = serverKeyAgree.generateSecret();
 		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
-		IvParameterSpec iv =  new IvParameterSpec(Arrays.copyOfRange(DHsecret, DHsecret.length-10, DHsecret.length));
+		IvParameterSpec iv = UtilsServer.getAnotherIV(DHsecret, 0);
 		
 		byteSimm = UtilsServer.hashToKey(byteSimm, Integer.parseInt(keySizeSym));
 
@@ -236,19 +236,26 @@ class StreamServer {
 		byte[] buffSend = null;
 		long t0 = System.nanoTime(); //ref time for real-time stream
 
+		int seq = 0;
 		while (g.available() > 0) {
 			size = g.readShort();
 			time = g.readLong();
 			if ( count == 0 ) q0 = time;
 			count += 1;
 
+			if(UtilsServer.isGCM(ciphersuite)){
+				seq++;
+				iv = UtilsServer.getAnotherIV(DHsecret, seq);
+				symEnc = UtilsServer.prepareSymEnc(ciphersuite, kSimm, iv);
+			}
+
 			g.readFully(buff, 0, size);
 
 			if(macKeySize.equals("NULL")){
-				buffSend = UtilsServer.preparePacketHash(buff, symEnc, kPriv, digSig, hfun);
+				buffSend = UtilsServer.preparePacketHash(buff, symEnc, kPriv, digSig, hfun, seq);
 			}
 			else {
-				buffSend = UtilsServer.preparePacketMac(buff, symEnc, kPriv, digSig, macF);
+				buffSend = UtilsServer.preparePacketMac(buff, symEnc, kPriv, digSig, macF, seq);
 			}
 			
 			UtilsServer.sendUDP(sSendUDP, buffSend, hostname, port);
@@ -260,6 +267,8 @@ class StreamServer {
 
 		}
 		UtilsServer.sendNull(sSendUDP, hostname, port);
+		System.out.println("Sent Finished");
+		g.close();
 
 	}
 
