@@ -10,7 +10,7 @@ Then converted into PKCS12 format: `keytool -importkeystore -srckeystore mykeyst
 Compile:  
 `javac -cp "../bcprov-jdk18on-172.jar:../bcprov-ext-jdk18on-172.jar:." *.java`  
 Run:  
-`java -cp "../bcprov-jdk18on-172.jar:../bcprov-ext-jdk18on-172.jar:." Box ./movies/monsters.dat localhost 6789`  
+`java -cp "../bcprov-jdk18on-172.jar:../bcprov-ext-jdk18on-172.jar:." Box ./movies/monsters.dat.enc localhost 6789`  
 
 ### StreamServer
 Compile:  

@@ -221,7 +221,12 @@ class StreamServer {
 		}
 		String movie = new String(movieB);
 
+		UtilsServer.decConfig(movie, "./configs/PBE-cryptoconfig");
+
+		movie = movie + ".dec";
 		DataInputStream g = new DataInputStream( new FileInputStream(movie) );
+
+		System.out.println(" ********* ho fatto ********* ");
 		
 		int size = 0;
 		int count = 0;
@@ -268,6 +273,7 @@ class StreamServer {
 			// System.out.print(".");
 
 		}
+		UtilsServer.deleteFile(movie);
 		UtilsServer.sendNull(sSendUDP, hostname, port);
 		long finTime = System.nanoTime();
 		int etm = (int) (finTime - initTime)/1000; 		// total elapsed time of the sent movie
