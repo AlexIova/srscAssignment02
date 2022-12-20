@@ -45,8 +45,8 @@ class PrintStatsBox{
             String key = UtilsBox.toHex(keySymm.getEncoded());
             int ksize = 4 * key.length();
             int afs = sizeC/count;
-            int frate = count/time;
-            int tput = (sizeD/1000)/time;
+            int frate = count/(time/1000);
+            int tput = (sizeD/1000)/(time/1000);
             int asesegments = sizeC/count;
             int asdecsegments = sizeD/count;
     

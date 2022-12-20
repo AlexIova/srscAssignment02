@@ -17,5 +17,3 @@ openssl pkey -in tmpECDSA.pem -out ServerECDSAsecp256r1.pem
 rm tmpECDSA.pem
 openssl req -new -key ServerECDSAsecp256r1.pem -out ServerECDSAsecp256r1.csr  
 openssl x509 -req -days 1000 -in ServerECDSAsecp256r1.csr -CA RootCA.crt -CAkey RootCA.pem -CAcreateserial -out ServerECDSAsecp256r1.crt
-
-cat ServerCertRSA2048.crt ServerCertDSA2048.crt ServerECDSAsecp256r1.crt > allServerCerts.crt  

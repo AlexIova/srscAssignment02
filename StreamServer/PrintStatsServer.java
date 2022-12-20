@@ -38,8 +38,8 @@ class PrintStatsServer {
                                     int nf, int ms, int etm){
     
             int afs = ms/nf;
-            int frate = nf/etm;
-            int tput = (ms/1000)/etm;
+            int frate = nf/(etm/1000);
+            int tput = (ms/1000)/(etm/1000);
             String key = UtilsServer.toHex(keySymm.getEncoded());
             int ksize = 4 * key.length();
         
