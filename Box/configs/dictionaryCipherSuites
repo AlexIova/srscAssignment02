@@ -41,7 +41,7 @@ Mackey-size: 256
 <CS5>
 digital-signature: ECDSA
 ecspec: secp256r1
-ciphersuite: AES/CTR/NoPadding 	
+ciphersuite: AES/GCM/NoPadding 	
 key-size-sym: 256			
 integrity: HMAC-SHA256				
 Mackey-size: 256

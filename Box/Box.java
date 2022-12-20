@@ -133,9 +133,7 @@ class Box {
 		DHParameterSpec dhServParam = ( (javax.crypto.interfaces.DHPublicKey) servDHkeyPub).getParams();
 		KeyPairGenerator boxKpairGen = KeyPairGenerator.getInstance("DH", "BC");
         boxKpairGen.initialize(dhServParam);
-        // KeyPair servPair = boxKpairGen.generateKeyPair();
 		boxKeyAgree.doPhase(servDHkeyPub, true);
-		// System.out.println(UtilsBox.toHex(boxKeyAgree.generateSecret()));
 
 		// Get certificates
 		int sizeCerts = UtilsBox.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
@@ -157,7 +155,6 @@ class Box {
 		/* Now get algs */
 		Properties properties = UtilsBox.parserDictionary(cs, "./configs/dictionaryCipherSuites");
 		String digSig = properties.getProperty("digital-signature");
-		String ecspec = properties.getProperty("ecspec");
 		String ciphersuite = properties.getProperty("ciphersuite");
 		String keySizeSym = properties.getProperty("key-size-sym");
 		String integrity = properties.getProperty("integrity");
@@ -174,18 +171,10 @@ class Box {
 		}
 
 		int portRecvUDP = socket.getLocalPort();		// Server will reply on this port
-		System.out.println("port udp: " + portRecvUDP);
 		UtilsBox.closeTCPConns(socket, input, output);
 
 
 		/********* GET CS DATA *********/
-
-		System.out.println("digsig: " + digSig);
-		System.out.println("ecscpec: " + ecspec);
-		System.out.println("ciphersuites: " + ciphersuite);
-		System.out.println("keySizeSym " + keySizeSym);
-		System.out.println("integrity " + integrity);
-		System.out.println("macKeySize " + macKeySize);
 
 		byte[] DHsecret = boxKeyAgree.generateSecret();
 		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
@@ -211,8 +200,6 @@ class Box {
 
 		kPriv = UtilsBox.readGeneralPrivateKey(digSig);
 
-		System.out.println("secret ksmim: " + UtilsBox.toHex(kSimm.getEncoded()));
-
 		long tf = System.currentTimeMillis();
 		long latency = tf - ti;
 
@@ -225,9 +212,6 @@ class Box {
 
 		String hostPlayer = propAddr.getProperty("host");
 		int portPlayer = Integer.parseInt(propAddr.getProperty("port"));
-
-		System.out.println("hostPlayer: " + hostPlayer);
-		System.out.println("portPlayer: " + portPlayer);
 
 		byte[] buffer = new byte[BUFF_SIZE * 3];
 		DatagramPacket inPacket = new DatagramPacket(buffer, buffer.length);
@@ -254,13 +238,15 @@ class Box {
 		int sizeD = 0;
 		int nf = 0;
 		ti = System.nanoTime();
+
+		System.out.println("Now receiving");
+
 		while(true){
 
 			sRecvUDP.receive(inPacket);
 			nf++;
 			
 			if(UtilsBox.isFinished(inPacket)){
-				System.out.println("RILEVATA FINE");
 				break;
 			}
 			data = Arrays.copyOfRange(inPacket.getData(), 0, inPacket.getLength());
@@ -290,7 +276,7 @@ class Box {
 				discarded++;
 			}
 			
-			System.out.print(".");
+			// System.out.print(".");
 
 		}
 

@@ -72,7 +72,6 @@ class StreamServer {
 		byte[] pDHbox = Arrays.copyOfRange(reply, i+4, i+4+lenPubDHkey);
 		i += (4 + lenPubDHkey);
 		PublicKey boxDHkeyPub = UtilsServer.publicDHkeyFromBytes(pDHbox);
-		// int sizeParamDH = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
 		i += 4;
 		/* Prepare DH key */
 		DHParameterSpec dhBoxParam = ( (javax.crypto.interfaces.DHPublicKey) boxDHkeyPub).getParams();		
@@ -82,7 +81,6 @@ class StreamServer {
 		KeyAgreement serverKeyAgree = KeyAgreement.getInstance("DH", "BC");
         serverKeyAgree.init(servPair.getPrivate());
 		serverKeyAgree.doPhase(boxDHkeyPub, true);
-		// System.out.println(UtilsServer.toHex(serverKeyAgree.generateSecret()));
 
 		// Get certificates
 		int sizeCerts = UtilsServer.byteArrToInt(Arrays.copyOfRange(reply, i, i+4));
@@ -91,7 +89,6 @@ class StreamServer {
 		for (X509Certificate cert : certsBox){			// verify all certs
 			if(!UtilsServer.verifyCert(cert, rootCert)){
 				System.out.println("ISSUE verifying certificate");
-				System.exit(1);
 			}
 		}
 		i += (4 + sizeCerts);
@@ -119,7 +116,6 @@ class StreamServer {
 		// Get algs
         Properties properties = UtilsServer.parserDictionary(cs, "./configs/dictionaryCipherSuites");
 		String digSig = properties.getProperty("digital-signature");
-		String ecspec = properties.getProperty("ecspec");
 		String ciphersuite = properties.getProperty("ciphersuite");
 		String keySizeSym = properties.getProperty("key-size-sym");
 		String integrity = properties.getProperty("integrity");
@@ -174,13 +170,6 @@ class StreamServer {
 
 		/********* GET CS DATA *********/
 
-		System.out.println("digsig: " + digSig);
-		System.out.println("ecscpec: " + ecspec);
-		System.out.println("ciphersuites: " + ciphersuite);
-		System.out.println("keySizeSym " + keySizeSym);
-		System.out.println("integrity " + integrity);
-		System.out.println("macKeySize " + macKeySize);
-
 		byte[] DHsecret = serverKeyAgree.generateSecret();
 		byte[] byteSimm = Arrays.copyOfRange(DHsecret, 0, 127);
 		IvParameterSpec iv = UtilsServer.getAnotherIV(DHsecret, 0);
@@ -200,9 +189,6 @@ class StreamServer {
 		}
 
 		SecretKey kSimm = new SecretKeySpec(byteSimm, ciphersuite);
-
-		System.out.println("secret ksmim: " + UtilsServer.toHex(kSimm.getEncoded()));
-		// System.out.println("secret mackey: " + UtilsServer.toHex(macKey.getEncoded()));
 
 		Cipher symEnc = UtilsServer.prepareSymEnc(ciphersuite, kSimm, iv);
 		Cipher symDec = UtilsServer.prepareSymDec(ciphersuite, kSimm, iv);
@@ -234,7 +220,6 @@ class StreamServer {
 			movieB = UtilsServer.verifyHASHAndDecrypt(data, symDec, kPubBox, digSig, hfun);
 		}
 		String movie = new String(movieB);
-		System.out.println("movie: " + movie);
 
 		DataInputStream g = new DataInputStream( new FileInputStream(movie) );
 		
@@ -249,6 +234,9 @@ class StreamServer {
 		long initTime = System.nanoTime(); //ref time for real-time stream
 
 		int seq = 0;
+
+		System.out.println("Now sending");
+
 		while (g.available() > 0) {
 			size = g.readShort();
 			time = g.readLong();
@@ -277,14 +265,12 @@ class StreamServer {
 			long t = System.nanoTime();
 			Thread.sleep( Math.max(0, ((time-q0)-(t-t0))/1000000));
 
-			System.out.print(".");
+			// System.out.print(".");
 
 		}
-		System.out.println("sono uscito");
 		UtilsServer.sendNull(sSendUDP, hostname, port);
 		long finTime = System.nanoTime();
 		int etm = (int) (finTime - initTime)/1000; 		// total elapsed time of the sent movie
-		System.out.println("Sent Finished");
 		g.close();
 
 		PrintStatsServer.PrintStream(movie, ciphersuite, integrity, kSimm, nf, ms, etm);

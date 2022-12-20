@@ -290,7 +290,6 @@ public class UtilsServer {
         return new String(bytes);
     }
 
-    /* choose CS to use */
     public static String chooseCS(byte[] recv, String path) throws IOException{
         
         String[] serverCS = fileToString(path).split(",");
